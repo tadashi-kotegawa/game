@@ -1,0 +1,16 @@
+# Backup files
+*.html.bak
+*_backup.html
+index_react_backup.html
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+
+# Temp files
+*.tmp
+*.swp
