@@ -1487,7 +1487,7 @@ const LEGAL_WORDS = [
                     if (nodes.every(n => n.isDone)) {
                         const addedScore = 100 + (this.combo * 10);
                         this.score += addedScore;
-                        this.setFeedback('Perfect!', 'text-green-400');
+                        this.setFeedback('Perfect!', 'success');
                         this.playSound('success');
                         this.pickNextWord();
                     }
@@ -1499,7 +1499,7 @@ const LEGAL_WORDS = [
                         this.shake = false;
                         this.render();
                     }, 300);
-                    this.setFeedback('Miss!', 'text-red-500');
+                    this.setFeedback('Miss!', 'miss');
                     
                     if (this.settings.realMode) {
                         this.currentWordData.nodes = nodes;
@@ -1525,8 +1525,8 @@ const LEGAL_WORDS = [
                 }
             }
 
-            setFeedback(text, color) {
-                this.feedback = { id: Date.now(), text, color };
+            setFeedback(text, tone = 'success') {
+                this.feedback = { id: Date.now(), text, tone };
                 setTimeout(() => {
                     this.feedback = null;
                     this.render();
@@ -1988,7 +1988,7 @@ const LEGAL_WORDS = [
 
             renderRankingButton() {
                 return `
-                    <button id="rankingBtn" class="fixed top-6 left-0 z-10 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold shadow-lg border border-amber-300 flex items-center gap-2" style="margin-left: 1rem;">
+                    <button id="rankingBtn" class="fixed top-6 left-0 z-10 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold shadow-lg border border-amber-300 flex items-center gap-2 transition-colors" style="margin-left: 1rem;">
                         ${this.renderIcon('trophy')} ランキング
                     </button>
                 `;
@@ -2057,12 +2057,12 @@ const LEGAL_WORDS = [
                                 </p>
                                 
                                 <div class="flex flex-col gap-3">
-                                    <button id="startBtn" class="group relative w-full px-8 py-4 rounded-xl font-bold text-xl transition-all shadow-[0_0_20px_rgba(8,145,178,0.5)] hover:shadow-[0_0_30px_rgba(34,211,238,0.6)] overflow-hidden ${this.settings.gameMode === 'legal' ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-cyan-600 hover:bg-cyan-500'}">
+                                    <button id="startBtn" class="group relative w-full px-8 py-4 rounded-xl font-bold text-xl transition-all shadow-lg hover:shadow-cyan-500/25 overflow-hidden ${this.settings.gameMode === 'legal' ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-cyan-600 hover:bg-cyan-500'}">
                                         <span class="relative z-10 flex items-center justify-center gap-2">
                                             ${this.settings.gameMode === 'legal' ? this.renderIcon('scale') : this.renderIcon('play')} START
                                         </span>
                                     </button>
-                                    <button id="rankingStartBtn" class="w-full px-8 py-3 rounded-xl font-bold text-lg bg-amber-600 hover:bg-amber-500 text-slate-900 transition-all shadow-[0_0_20px_rgba(245,158,11,0.35)]">
+                                    <button id="rankingStartBtn" class="w-full px-8 py-3 rounded-xl font-bold text-lg bg-amber-500 hover:bg-amber-400 text-slate-900 transition-colors shadow-lg border border-amber-300">
                                         ${this.renderIcon('trophy')} RANKING MODE START
                                     </button>
                                     <div class="text-xs text-slate-500 font-mono">Press [SPACE] to Start</div>
@@ -2392,7 +2392,11 @@ const LEGAL_WORDS = [
 
                         <div class="flex-1 flex flex-col items-center justify-center relative p-4">
                             ${this.feedback ? `
-                                <div class="absolute top-1/4 text-4xl font-black tracking-widest z-50 pointer-events-none animate-float-up ${this.feedback.color}" style="text-shadow: 0 0 10px rgba(0,0,0,0.5)">
+                                <div class="absolute top-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none rounded-full px-4 py-2 text-sm font-bold tracking-wide border backdrop-blur-sm ${
+                                    this.feedback.tone === 'miss'
+                                        ? 'bg-red-900/20 text-red-300 border-red-500/30'
+                                        : 'bg-green-900/20 text-green-400 border-green-500/30'
+                                }">
                                     ${this.feedback.text}
                                 </div>
                             ` : ''}
@@ -2408,7 +2412,7 @@ const LEGAL_WORDS = [
                                 ` : ''}
 
                                 <div class="mb-8 space-y-2">
-                                    <h2 class="text-5xl md:text-7xl font-black text-white drop-shadow-lg tracking-wide whitespace-nowrap overflow-hidden text-ellipsis">
+                                    <h2 class="text-5xl md:text-7xl font-black text-white drop-shadow-lg tracking-wide break-all leading-none">
                                         ${this.escapeHtml(this.currentWordData.text)}
                                     </h2>
                                     <p class="text-2xl text-slate-400 font-medium">
@@ -2473,7 +2477,7 @@ const LEGAL_WORDS = [
                             : '';
                         
                         const cursor = isActive && !node.isDone 
-                            ? `<span class="absolute inline-block w-[2px] h-[1em] bg-yellow-400 animate-pulse align-middle -mt-[0.2em]" style="margin-left: ${node.input.length}ch"></span>`
+                            ? `<span class="inline-block w-[2px] h-[1em] bg-yellow-400 animate-pulse align-middle ml-[1px] -mt-[0.2em]"></span>`
                             : '';
                         
                         content = inputChars + remaining + cursor;
@@ -2491,7 +2495,7 @@ const LEGAL_WORDS = [
 
                 const spacerText = this.settings.displayMode === 'ime' ? node.char : node.selectedOption;
                 const cursor = !node.isDone && !this.settings.realMode && isActive
-                    ? `<div class="absolute bottom-0 left-0 w-full h-1 bg-yellow-400 animate-pulse" style="left: ${this.settings.displayMode === 'ime' ? Math.min(node.input.length, node.char.length) : node.input.length}ch; width: 1ch"></div>`
+                    ? `<div class="absolute bottom-0 h-1 bg-yellow-400 animate-pulse" style="left: ${this.settings.displayMode === 'ime' ? Math.min(node.input.length, node.char.length) : node.input.length}ch; width: 1ch"></div>`
                     : '';
 
                 return `
