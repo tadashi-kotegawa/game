@@ -118,6 +118,7 @@
         .static { position: static; }
         .relative { position: relative; }
         .absolute { position: absolute; }
+        .fixed { position: fixed; }
         .sticky { position: sticky; }
         
         .inset-0 { top: 0; right: 0; bottom: 0; left: 0; }
@@ -402,7 +403,7 @@
 <body>
     <script>
         // Inline SVG icons to replace Feather Icons
-        const INLINE_ICONS = {
+        window.INLINE_ICONS = {
             'play': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>',
             'pause': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>',
             'rotate-ccw': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>',
@@ -429,7 +430,24 @@
     </script>
     <div id="app"></div>
 
-    <script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, getDocs, query, orderBy, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCYY4MugI7KvfK4o-UNg4NWLnl5ZVIs6s0",
+            authDomain: "typing-ranking-7a3d4.firebaseapp.com",
+            projectId: "typing-ranking-7a3d4",
+            storageBucket: "typing-ranking-7a3d4.firebasestorage.app",
+            messagingSenderId: "141020867565",
+            appId: "1:141020867565:web:8e6d9a21a63b63a66e15e4",
+            measurementId: "G-86HRZLT1ED"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const INLINE_ICONS = window.INLINE_ICONS || {};
+
         // --- Constants: KANA_MAP ---
         const KANA_MAP = {
             'あ': ['a'], 'い': ['i', 'yi'], 'う': ['u', 'wu', 'whu'], 'え': ['e'], 'お': ['o'],
@@ -1289,6 +1307,11 @@ const LEGAL_WORDS = [
                 this.showSettings = false;
                 this.showStats = false;
                 this.showKeyboardSelector = false;
+                this.showRanking = false;
+                this.rankings = [];
+                this.rankingLoading = false;
+                this.rankingError = '';
+                this.isSavingRanking = false;
                 
                 this.setupEventListeners();
                 this.render();
@@ -1327,7 +1350,7 @@ const LEGAL_WORDS = [
             }
 
             handleKeyDown(e) {
-                if (this.showSettings || this.showStats || this.showKeyboardSelector) return;
+                if (this.showSettings || this.showStats || this.showKeyboardSelector || this.showRanking) return;
                 if (this.isPaused) return;
 
                 if (e.code === 'Space') {
@@ -1530,6 +1553,66 @@ const LEGAL_WORDS = [
                 if (this.settings.sound) soundEngine.playSuccess();
                 this.saveMissStats();
                 this.render();
+                this.saveScoreToRanking();
+            }
+
+
+            async saveScoreToRanking() {
+                if (this.isSavingRanking) return;
+
+                const name = prompt('ランキング登録名を入力してください（未入力でスキップ）');
+                if (!name || !name.trim()) return;
+
+                this.isSavingRanking = true;
+
+                try {
+                    await addDoc(collection(db, 'rankings'), {
+                        name: name.trim().slice(0, 20),
+                        score: this.score,
+                        createdAt: serverTimestamp()
+                    });
+                } catch (error) {
+                    console.error('Failed to save ranking score:', error);
+                    alert('ランキング保存に失敗しました。ネットワーク状況を確認して再度お試しください。');
+                } finally {
+                    this.isSavingRanking = false;
+                }
+            }
+
+            async fetchRankings() {
+                this.rankingLoading = true;
+                this.rankingError = '';
+                this.rankings = [];
+                this.render();
+
+                try {
+                    const rankingsQuery = query(collection(db, 'rankings'), orderBy('score', 'desc'), limit(10));
+                    const snapshot = await getDocs(rankingsQuery);
+                    this.rankings = snapshot.docs.map((doc, index) => ({
+                        id: doc.id,
+                        rank: index + 1,
+                        ...doc.data()
+                    }));
+                } catch (error) {
+                    console.error('Failed to fetch rankings:', error);
+                    this.rankingError = 'ランキングの取得に失敗しました。時間をおいて再度お試しください。';
+                    this.rankings = [];
+                } finally {
+                    this.rankingLoading = false;
+                    this.render();
+                }
+            }
+
+            openRankingModal() {
+                if (this.showRanking) return;
+                this.showRanking = true;
+                this.fetchRankings();
+                this.render();
+            }
+
+            closeRankingModal() {
+                this.showRanking = false;
+                this.render();
             }
 
             pickNextWord() {
@@ -1643,6 +1726,20 @@ const LEGAL_WORDS = [
                 if (statsBtn) statsBtn.onclick = () => {
                     this.showStats = true;
                     this.render();
+                };
+
+                const rankingBtn = document.getElementById('rankingBtn');
+                if (rankingBtn) rankingBtn.onclick = () => this.openRankingModal();
+
+                const closeRankingBtn = document.getElementById('closeRankingBtn');
+                if (closeRankingBtn) closeRankingBtn.onclick = () => this.closeRankingModal();
+
+                const reloadRankingBtn = document.getElementById('reloadRankingBtn');
+                if (reloadRankingBtn) reloadRankingBtn.onclick = () => this.fetchRankings();
+
+                const rankingOverlay = document.getElementById('rankingOverlay');
+                if (rankingOverlay) rankingOverlay.onclick = (e) => {
+                    if (e.target === rankingOverlay) this.closeRankingModal();
                 };
                 
                 // Settings modal
@@ -1816,12 +1913,58 @@ const LEGAL_WORDS = [
                 `;
             }
 
+            renderRankingButton() {
+                return `
+                    <button id="rankingBtn" class="fixed top-6 left-0 z-10 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold shadow-lg border border-amber-300 flex items-center gap-2" style="margin-left: 1rem;">
+                        ${this.renderIcon('trophy')} ランキング
+                    </button>
+                `;
+            }
+
+            renderRankingModal() {
+                return `
+                    <div id="rankingOverlay" class="fixed inset-0 z-50 bg-slate-900/80 flex items-center justify-center p-4">
+                        <div class="w-full max-w-xl bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl p-6">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-2xl font-bold text-amber-300 flex items-center gap-2">${this.renderIcon('trophy')} オンラインランキング</h3>
+                                <div class="flex items-center gap-2">
+                                    <button id="reloadRankingBtn" class="px-3 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-bold">更新</button>
+                                    <button id="closeRankingBtn" class="p-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200">${this.renderIcon('x')}</button>
+                                </div>
+                            </div>
+
+                            ${this.rankingLoading ? `
+                                <div class="text-center text-slate-300 py-8">読み込み中...</div>
+                            ` : this.rankingError ? `
+                                <div class="text-center text-red-300 bg-red-900/20 border border-red-500/40 rounded-lg py-4 px-3">${this.rankingError}</div>
+                            ` : this.rankings.length === 0 ? `
+                                <div class="text-center text-slate-300 bg-slate-900/40 border border-slate-700 rounded-lg py-8">まだスコアが登録されていません。</div>
+                            ` : `
+                                <div class="space-y-2 overflow-y-auto pr-1" style="max-height: 60vh;">
+                                    ${this.rankings.map((item) => `
+                                        <div class="flex items-center justify-between bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-3">
+                                            <div class="flex items-center gap-3">
+                                                <span class="text-amber-300 font-black w-12">#${item.rank}</span>
+                                                <span class="text-white font-bold">${this.escapeHtml(item.name || 'NO NAME')}</span>
+                                            </div>
+                                            <span class="text-cyan-300 font-mono font-bold">${Number(item.score || 0).toLocaleString()} pts</span>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            `}
+                        </div>
+                    </div>
+                `;
+            }
+
             renderMenu() {
                 return `
                     <div class="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-4 font-sans select-none relative overflow-hidden">
+                        ${this.renderRankingButton()}
                         ${this.showKeyboardSelector ? this.renderKeyboardSelector() : ''}
                         ${this.showSettings ? this.renderSettings() : ''}
                         ${this.showStats ? this.renderStatsPanel() : ''}
+                        ${this.showRanking ? this.renderRankingModal() : ''}
                         
                         <button id="settingsBtn" class="absolute top-6 right-6 p-3 bg-slate-800 hover:bg-slate-700 rounded-full text-slate-400 hover:text-cyan-400 transition-all border border-slate-700 hover:border-cyan-400 z-10">
                             ${this.renderIcon('settings')}
@@ -2136,7 +2279,9 @@ const LEGAL_WORDS = [
                 const activeNodeIndex = this.currentWordData.nodes.findIndex(n => !n.isDone);
                 
                 return `
-                    <div class="min-h-screen bg-slate-900 text-white flex flex-col font-sans select-none overflow-hidden">
+                    <div class="min-h-screen bg-slate-900 text-white flex flex-col font-sans select-none overflow-hidden relative">
+                        ${this.renderRankingButton()}
+                        ${this.showRanking ? this.renderRankingModal() : ''}
                         ${this.isPaused ? this.renderPauseOverlay() : ''}
 
                         <div class="p-6 flex justify-between items-end border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-10">
@@ -2304,8 +2449,10 @@ const LEGAL_WORDS = [
                 const sortedMisses = Object.entries(this.missStats).sort(([, a], [, b]) => b - a);
                 
                 return `
-                    <div class="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-4 font-sans select-none">
+                    <div class="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-4 font-sans select-none relative">
+                        ${this.renderRankingButton()}
                         ${this.showStats ? this.renderStatsPanel() : ''}
+                        ${this.showRanking ? this.renderRankingModal() : ''}
 
                         <div class="max-w-2xl w-full bg-slate-800 rounded-3xl p-8 border border-slate-700 shadow-2xl space-y-8 animate-in zoom-in-95 duration-300">
                             <div class="text-center space-y-2">
