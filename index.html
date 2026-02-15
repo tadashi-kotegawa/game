@@ -85,6 +85,100 @@
             background: rgb(100, 116, 139);
         }
 
+
+        :root {
+            --settings-bg: #0b1220;
+            --settings-surface: rgba(255, 255, 255, 0.03);
+            --settings-surface-hover: rgba(255, 255, 255, 0.05);
+            --settings-panel: rgba(12, 20, 34, 0.96);
+            --settings-text: rgba(255, 255, 255, 0.95);
+            --settings-text-muted: rgba(255, 255, 255, 0.7);
+            --settings-text-subtle: rgba(255, 255, 255, 0.55);
+            --settings-accent: #14b8a6;
+            --settings-accent-soft: rgba(20, 184, 166, 0.24);
+            --settings-radius: 12px;
+            --settings-control-height: 44px;
+            --settings-space-1: 8px;
+            --settings-space-2: 16px;
+            --settings-space-3: 24px;
+        }
+
+        .settings-panel {
+            background: var(--settings-panel);
+            border-radius: var(--settings-radius);
+            box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
+            padding: var(--settings-space-3);
+        }
+        .settings-section { display: flex; flex-direction: column; gap: var(--settings-space-2); }
+        .settings-section-title {
+            display: flex; align-items: center; gap: var(--settings-space-1);
+            font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+            color: var(--settings-text-subtle);
+        }
+        .setting-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 220px;
+            align-items: center;
+            gap: var(--settings-space-2);
+            background: var(--settings-surface);
+            border-radius: var(--settings-radius);
+            padding: 12px 14px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+            transition: background-color 0.2s ease;
+        }
+        .setting-row:hover { background: var(--settings-surface-hover); }
+        .setting-meta { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+        .setting-title { font-size: 14px; font-weight: 700; color: var(--settings-text); }
+        .setting-desc { font-size: 12px; color: var(--settings-text-muted); }
+        .setting-control { justify-self: stretch; display: flex; justify-content: flex-end; align-items: center; gap: var(--settings-space-1); }
+        .settings-btn {
+            height: var(--settings-control-height); border: none; border-radius: var(--settings-radius);
+            background: rgba(255,255,255,0.08); color: var(--settings-text-muted);
+            font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.2s ease;
+        }
+        .settings-btn:hover { background: rgba(255,255,255,0.14); color: var(--settings-text); }
+        .settings-btn.active { background: var(--settings-accent); color: #05231f; box-shadow: 0 8px 18px rgba(20, 184, 166, 0.3); }
+        .segment-wrap { background: rgba(255, 255, 255, 0.05); padding: 4px; border-radius: var(--settings-radius); display: grid; gap: 4px; }
+        .segment-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .segment-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .segment-btn {
+            height: var(--settings-control-height); border: none; border-radius: calc(var(--settings-radius) - 2px);
+            background: transparent; color: var(--settings-text-subtle); font-weight: 700; cursor: pointer;
+            display: flex; justify-content: center; align-items: center; gap: 6px; flex-direction: column;
+        }
+        .segment-btn.active { background: var(--settings-accent-soft); color: var(--settings-text); }
+        .segment-btn small { font-size: 10px; line-height: 1; opacity: 0.85; font-weight: 500; }
+        .toggle-btn { background: transparent; border: none; padding: 0; cursor: pointer; border-radius: var(--settings-radius); }
+        .toggle-track {
+            width: 52px; height: 30px; border-radius: 999px; background: rgba(255,255,255,0.16);
+            position: relative; transition: all 0.2s ease;
+        }
+        .toggle-track.on { background: var(--settings-accent); }
+        .toggle-thumb {
+            width: 22px; height: 22px; border-radius: 999px; background: rgba(255,255,255,0.95);
+            position: absolute; top: 4px; left: 4px; transition: transform 0.2s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+        .toggle-track.on .toggle-thumb { transform: translateX(22px); }
+        .toggle-btn:focus-visible { outline: none; box-shadow: 0 0 0 4px rgba(20, 184, 166, 0.28); }
+        .settings-input {
+            height: var(--settings-control-height); border: none; border-radius: var(--settings-radius);
+            background: rgba(255,255,255,0.08); color: var(--settings-text);
+            padding: 0 12px; width: 100%; font-size: 14px;
+        }
+        .settings-input::placeholder { color: rgba(255,255,255,0.45); }
+        .settings-input:focus { outline: none; box-shadow: 0 0 0 4px rgba(20, 184, 166, 0.24); }
+        .slider-wrap { display: grid; grid-template-columns: 1fr auto; gap: var(--settings-space-1); align-items: center; width: 100%; }
+        .slider-value { font-size: 13px; font-weight: 700; color: var(--settings-text-muted); width: 44px; text-align: right; }
+        .settings-slider { -webkit-appearance: none; appearance: none; height: 8px; border-radius: 999px; background: rgba(255,255,255,0.16); }
+        .settings-slider::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none; width: 20px; height: 20px; border-radius: 999px;
+            background: var(--settings-accent); box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+        }
+        .settings-slider::-moz-range-thumb {
+            width: 20px; height: 20px; border: none; border-radius: 999px; background: var(--settings-accent);
+        }
+
         /* Layout utilities */
         .block { display: block; }
         .inline-block { display: inline-block; }
@@ -2017,10 +2111,22 @@ const LEGAL_WORDS = [
                 return INLINE_ICONS[name] || '';
             }
 
-            renderSwitch(checked, activeColor = 'bg-green-500') {
+            renderSwitch(checked) {
                 return `
-                    <div class="relative w-12 h-7 rounded-full transition-colors duration-200 ease-in-out ${checked ? activeColor : 'bg-slate-600'}">
-                        <div class="absolute top-1 left-1 bg-white w-5 h-5 rounded-full shadow-md transform transition-transform duration-200 ease-in-out ${checked ? 'translate-x-5' : 'translate-x-0'}"></div>
+                    <div class="toggle-track ${checked ? 'on' : ''}">
+                        <div class="toggle-thumb"></div>
+                    </div>
+                `;
+            }
+
+            renderSettingRow(title, description, controlHtml) {
+                return `
+                    <div class="setting-row">
+                        <div class="setting-meta">
+                            <div class="setting-title">${title}</div>
+                            <div class="setting-desc">${description}</div>
+                        </div>
+                        <div class="setting-control">${controlHtml}</div>
                     </div>
                 `;
             }
@@ -2138,155 +2244,103 @@ const LEGAL_WORDS = [
             }
 
             renderSettings() {
+                const weakRate = Math.round(this.settings.weakKeyRate * 100);
+                const selectedKeys = this.focusKeys.length > 0
+                    ? `<span class="font-mono" style="color: var(--settings-accent);">${this.focusKeys.join(', ').toUpperCase()}</span>`
+                    : '未選択（自動分析のみ）';
+
                 return `
-                    <div class="absolute inset-0 bg-slate-900/90 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
-                        <div id="settingsPanel" class="bg-slate-800 p-8 rounded-2xl border border-slate-700 w-full max-w-xl shadow-2xl space-y-6 relative max-h-[85vh] overflow-y-auto">
-                            <button id="closeSettingsBtn" class="absolute top-4 right-4 text-slate-500 hover:text-white sticky top-0">
+                    <div class="absolute inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200" style="background: rgba(6, 10, 20, 0.88);">
+                        <div id="settingsPanel" class="settings-panel w-full max-w-xl relative max-h-[85vh] overflow-y-auto space-y-6">
+                            <button id="closeSettingsBtn" class="absolute top-4 right-4 text-slate-500 hover:text-white">
                                 ${this.renderIcon('x')}
                             </button>
-                            <h2 class="text-2xl font-bold flex items-center gap-2 border-b border-slate-700 pb-4">
+                            <h2 class="text-2xl font-bold flex items-center gap-2 pb-4" style="color: var(--settings-text);">
                                 ${this.renderIcon('settings')} Settings
                             </h2>
-                            
-                            <div class="space-y-2">
-                                <label class="text-slate-400 text-sm font-bold uppercase tracking-wider flex items-center gap-2">
-                                    ${this.renderIcon('clock')} Game Duration
-                                </label>
-                                <div class="grid grid-cols-3 gap-2">
-                                    ${[30, 60, 90, 120, 180, 300].map(time => `
-                                        <button id="duration${time}" class="py-2 rounded-lg font-bold transition-all ${
-                                            this.settings.duration === time 
-                                            ? 'bg-cyan-600 text-white shadow-[0_0_15px_rgba(8,145,178,0.5)]' 
-                                            : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
-                                        }">
-                                            ${time}s
-                                        </button>
-                                    `).join('')}
-                                </div>
-                            </div>
 
-                            <div class="space-y-2">
-                                <label class="text-slate-400 text-sm font-bold uppercase tracking-wider flex items-center gap-2">
-                                    ${this.renderIcon('target')} 苦手キーを指定
-                                </label>
-                                <div class="bg-slate-700/50 p-4 rounded-xl border border-slate-600 flex flex-col gap-3">
-                                    <div class="text-xs text-slate-400">
-                                        ${this.focusKeys.length > 0 
-                                            ? `<span class="text-cyan-400 font-mono font-bold break-all">${this.focusKeys.join(', ').toUpperCase()}</span>`
-                                            : "No keys selected (Auto only)"}
-                                    </div>
-                                    <button id="openKeyboardBtn" class="w-full py-2 bg-slate-600 hover:bg-slate-500 rounded-lg text-sm font-bold text-white transition-colors flex items-center justify-center gap-2">
-                                        ${this.renderIcon('keyboard')} Select Keys on Keyboard
-                                    </button>
-                                    
-                                    <div class="flex items-center justify-between py-2 border-t border-slate-600/50 mt-2">
-                                        <span class="text-xs font-bold text-slate-300">母音(AIUEO)を分析から除外</span>
-                                        <button id="ignoreVowelsSwitch" class="scale-75 origin-right">
-                                            ${this.renderSwitch(this.settings.ignoreVowels, 'bg-cyan-600')}
-                                        </button>
-                                    </div>
+                            <section class="settings-section">
+                                <div class="settings-section-title">${this.renderIcon('clock')} Game Duration</div>
+                                ${this.renderSettingRow(
+                                    'プレイ時間',
+                                    'ラウンド時間を選択します',
+                                    `<div class="segment-wrap segment-3">${[30, 60, 90, 120, 180, 300].map(time => `
+                                        <button id="duration${time}" class="segment-btn ${this.settings.duration === time ? 'active' : ''}">${time}s</button>
+                                    `).join('')}</div>`
+                                )}
+                            </section>
 
-                                    <div class="pt-2 border-t border-slate-600/50">
-                                        <div class="flex justify-between items-center mb-1">
-                                            <span class="text-xs font-bold text-slate-300">苦手キー出現率</span>
-                                            <span class="text-xs font-mono text-cyan-400">${Math.round(this.settings.weakKeyRate * 100)}%</span>
-                                        </div>
-                                        <input id="weakKeyRateSlider" type="range" min="0" max="1" step="0.1" value="${this.settings.weakKeyRate}" class="w-full h-2 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-cyan-500" />
-                                    </div>
-                                </div>
-                            </div>
+                            <section class="settings-section">
+                                <div class="settings-section-title">${this.renderIcon('target')} 苦手キー設定</div>
+                                ${this.renderSettingRow(
+                                    '重点キー選択',
+                                    selectedKeys,
+                                    `<button id="openKeyboardBtn" class="settings-btn" style="width: 100%;">${this.renderIcon('keyboard')} キーボードから選択</button>`
+                                )}
+                                ${this.renderSettingRow(
+                                    '母音を除外',
+                                    'AIUEO を分析対象から外します',
+                                    `<button id="ignoreVowelsSwitch" class="toggle-btn">${this.renderSwitch(this.settings.ignoreVowels)}</button>`
+                                )}
+                                ${this.renderSettingRow(
+                                    '苦手キー出現率',
+                                    '重点キーが出現する割合',
+                                    `<div class="slider-wrap"><input id="weakKeyRateSlider" type="range" min="0" max="1" step="0.1" value="${this.settings.weakKeyRate}" class="settings-slider" /><span class="slider-value">${weakRate}%</span></div>`
+                                )}
+                            </section>
 
-                            <div class="space-y-2">
-                                <label class="text-slate-400 text-sm font-bold uppercase tracking-wider flex items-center gap-2">
-                                    ${this.settings.sound ? this.renderIcon('volume-2') : this.renderIcon('volume-x')} 
-                                    Sound Effects
-                                </label>
-                                <div class="flex gap-2 bg-slate-700 p-1 rounded-lg">
-                                    <button id="soundOn" class="flex-1 py-2 rounded-md font-bold text-sm transition-all ${
-                                        this.settings.sound ? 'bg-cyan-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
-                                    }">
-                                        ON
-                                    </button>
-                                    <button id="soundOff" class="flex-1 py-2 rounded-md font-bold text-sm transition-all ${
-                                        !this.settings.sound ? 'bg-red-500/80 text-white shadow-sm' : 'text-slate-400 hover:text-white'
-                                    }">
-                                        OFF
-                                    </button>
-                                </div>
-                            </div>
+                            <section class="settings-section">
+                                <div class="settings-section-title">${this.settings.sound ? this.renderIcon('volume-2') : this.renderIcon('volume-x')} Sound</div>
+                                ${this.renderSettingRow(
+                                    '効果音',
+                                    'タイプ音と通知音を切り替えます',
+                                    `<div class="segment-wrap segment-2" style="width: 100%;">
+                                        <button id="soundOn" class="segment-btn ${this.settings.sound ? 'active' : ''}">ON</button>
+                                        <button id="soundOff" class="segment-btn ${!this.settings.sound ? 'active' : ''}">OFF</button>
+                                    </div>`
+                                )}
+                            </section>
 
-                            <div class="space-y-2">
-                                <label class="text-slate-400 text-sm font-bold uppercase tracking-wider flex items-center gap-2">
-                                    ${this.renderIcon('eye')} Display Mode
-                                </label>
-                                <div class="flex gap-2 bg-slate-700 p-1 rounded-lg">
-                                    <button id="displayIme" class="flex-1 py-2 rounded-md font-bold text-sm transition-all flex flex-col items-center justify-center ${
-                                        this.settings.displayMode === 'ime' ? 'bg-cyan-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
-                                    }">
-                                        <div class="flex items-center gap-1">${this.renderIcon('languages')} IME</div>
-                                        <span class="text-[10px] font-normal opacity-80">ひらがな変換</span>
-                                    </button>
-                                    <button id="displayInput" class="flex-1 py-2 rounded-md font-bold text-sm transition-all flex flex-col items-center justify-center ${
-                                        this.settings.displayMode === 'input' ? 'bg-cyan-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
-                                    }">
-                                        <div class="flex items-center gap-1">${this.renderIcon('eye-off')} Input</div>
-                                        <span class="text-[10px] font-normal opacity-80">打つと表示</span>
-                                    </button>
-                                    <button id="displayGuide" class="flex-1 py-2 rounded-md font-bold text-sm transition-all flex flex-col items-center justify-center ${
-                                        this.settings.displayMode === 'guide' ? 'bg-cyan-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
-                                    }">
-                                        <div class="flex items-center gap-1">${this.renderIcon('eye')} Guide</div>
-                                        <span class="text-[10px] font-normal opacity-80">最初から表示</span>
-                                    </button>
-                                </div>
-                            </div>
+                            <section class="settings-section">
+                                <div class="settings-section-title">${this.renderIcon('eye')} Display</div>
+                                ${this.renderSettingRow(
+                                    'DISPLAY MODE',
+                                    '表示方法を統一タブで切替',
+                                    `<div class="segment-wrap segment-3" style="width: 100%;">
+                                        <button id="displayIme" class="segment-btn ${this.settings.displayMode === 'ime' ? 'active' : ''}"><span>${this.renderIcon('languages')} IME</span><small>ひらがな変換</small></button>
+                                        <button id="displayInput" class="segment-btn ${this.settings.displayMode === 'input' ? 'active' : ''}"><span>${this.renderIcon('eye-off')} Input</span><small>打つと表示</small></button>
+                                        <button id="displayGuide" class="segment-btn ${this.settings.displayMode === 'guide' ? 'active' : ''}"><span>${this.renderIcon('eye')} Guide</span><small>最初から表示</small></button>
+                                    </div>`
+                                )}
+                            </section>
 
-                            <div class="flex flex-col gap-4 py-4 border-t border-slate-700/50 mt-4">
-                                <div class="flex items-center justify-between">
-                                    <div class="flex items-center gap-3">
-                                        <div class="p-2 rounded-lg ${this.settings.gameMode === 'legal' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-slate-700 text-slate-400'}">
-                                            ${this.settings.gameMode === 'legal' ? this.renderIcon('scale') : this.renderIcon('keyboard')}
-                                        </div>
-                                        <div class="flex flex-col">
-                                            <span class="font-bold text-slate-200">Legal Terms Mode</span>
-                                            <span class="text-xs text-slate-500">法律用語（200語）で練習する</span>
-                                        </div>
-                                    </div>
-                                    <button id="legalModeSwitch">
-                                        ${this.renderSwitch(this.settings.gameMode === 'legal', 'bg-indigo-600')}
-                                    </button>
-                                </div>
+                            <section class="settings-section">
+                                <div class="settings-section-title">${this.renderIcon('settings')} Modes</div>
+                                ${this.renderSettingRow(
+                                    'Legal Terms Mode',
+                                    '法律用語（200語）で練習します',
+                                    `<button id="legalModeSwitch" class="toggle-btn">${this.renderSwitch(this.settings.gameMode === 'legal')}</button>`
+                                )}
+                                ${this.renderSettingRow(
+                                    'Real Typing Mode',
+                                    'ミスを Backspace で消す実戦形式',
+                                    `<button id="realModeSwitch" class="toggle-btn">${this.renderSwitch(this.settings.realMode)}</button>`
+                                )}
+                            </section>
 
-                                <div class="flex items-center justify-between">
-                                    <div class="flex items-center gap-3">
-                                        <div class="p-2 rounded-lg ${this.settings.realMode ? 'bg-red-500/20 text-red-400' : 'bg-slate-700 text-slate-400'}">
-                                            ${this.renderIcon('delete')}
-                                        </div>
-                                        <div class="flex flex-col">
-                                            <span class="font-bold text-slate-200">Real Typing Mode</span>
-                                            <span class="text-xs text-slate-500">ミスをBackspaceで消す実戦形式</span>
-                                        </div>
-                                    </div>
-                                    <button id="realModeSwitch">
-                                        ${this.renderSwitch(this.settings.realMode, 'bg-red-600')}
-                                    </button>
-                                </div>
-                            </div>
+                            <section class="settings-section">
+                                <div class="settings-section-title">${this.renderIcon('trophy')} Ranking</div>
+                                ${this.renderSettingRow(
+                                    'ランキング登録名',
+                                    'ランキングモードで使う名前を設定',
+                                    `<div class="flex gap-2" style="width: 100%;">
+                                        <input id="rankingNicknameInput" type="text" maxlength="20" value="${this.escapeHtml(this.rankingNickname || '')}" placeholder="ランキングに表示する名前" class="settings-input" />
+                                        <button id="saveRankingNicknameBtn" class="settings-btn active" style="padding: 0 16px; white-space: nowrap;">保存</button>
+                                    </div>`
+                                )}
+                            </section>
 
-                            <div class="space-y-2">
-                                <label class="text-slate-400 text-sm font-bold uppercase tracking-wider flex items-center gap-2">
-                                    ${this.renderIcon('trophy')} ランキング登録名
-                                </label>
-                                <div class="bg-slate-700/50 p-4 rounded-xl border border-slate-600 space-y-3">
-                                    <input id="rankingNicknameInput" type="text" maxlength="20" value="${this.escapeHtml(this.rankingNickname || '')}" placeholder="ランキングに表示する名前" class="w-full px-3 py-2 rounded-lg bg-slate-900/80 border border-slate-600 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500" />
-                                    <div class="flex items-center justify-between gap-3 text-xs">
-                                        <span class="text-slate-400">ランキングモードで使う名前を変更できます</span>
-                                        <button id="saveRankingNicknameBtn" class="px-3 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-slate-900 font-bold">名前を保存</button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <button id="saveSettingsBtn" class="w-full py-4 bg-slate-700 hover:bg-slate-600 rounded-xl font-bold text-white transition-colors">
+                            <button id="saveSettingsBtn" class="settings-btn active" style="width: 100%;">
                                 Close & Save
                             </button>
                         </div>
