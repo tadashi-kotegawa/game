@@ -1493,6 +1493,7 @@ const LEGAL_WORDS = [
                 this.rankingLoading = false;
                 this.rankingError = '';
                 this.isSavingRanking = false;
+                this.lastRankingResult = null;
                 this.currentRunMode = 'normal';
                 this.pendingSettingsRestore = null;
                 this.rankingNickname = localStorage.getItem(RANKING_MODE_STORAGE_KEY) || '';
@@ -1780,6 +1781,33 @@ const LEGAL_WORDS = [
                     this.saveScoreToRanking();
                 }
             }
+
+            buildUniqueRankings(entries, minCreatedAtMs = null) {
+                const uniqueByName = new Map();
+
+                entries.forEach((item) => {
+                    const key = (item.name || '').trim().toLowerCase();
+                    if (!key) return;
+
+                    const createdAtMs = item.createdAt?.toDate ? item.createdAt.toDate().getTime() : null;
+                    if (typeof minCreatedAtMs === 'number' && (createdAtMs === null || createdAtMs < minCreatedAtMs)) {
+                        return;
+                    }
+
+                    const current = uniqueByName.get(key);
+                    if (!current || Number(item.score || 0) > Number(current.score || 0)) {
+                        uniqueByName.set(key, item);
+                    }
+                });
+
+                return Array.from(uniqueByName.values())
+                    .sort((a, b) => Number(b.score || 0) - Number(a.score || 0))
+                    .map((item, index) => ({
+                        ...item,
+                        rank: index + 1
+                    }));
+            }
+
             async saveScoreToRanking() {
                 if (this.isSavingRanking) return;
 
@@ -1799,54 +1827,89 @@ const LEGAL_WORDS = [
                         score: this.score,
                         createdAt: serverTimestamp()
                     });
+
+                    await this.fetchRankings({
+                        keepLoadingState: false,
+                        runScore: this.score,
+                        runName: nickname
+                    });
                 } catch (error) {
                     console.error('Failed to save ranking score:', error);
                     alert('ランキング保存に失敗しました。ネットワーク状況を確認して再度お試しください。');
                 } finally {
                     this.isSavingRanking = false;
+                    this.render();
                 }
             }
 
-            async fetchRankings() {
-                this.rankingLoading = true;
-                this.rankingError = '';
-                this.rankings = [];
-                this.render();
+            async fetchRankings(options = {}) {
+                const { keepLoadingState = true, runScore = null, runName = '' } = options;
+
+                if (keepLoadingState) {
+                    this.rankingLoading = true;
+                    this.rankingError = '';
+                    this.rankings = [];
+                    this.render();
+                }
 
                 try {
                     const rankingsQuery = query(
                         collection(db, 'rankings'),
                         orderBy('score', 'desc'),
-                        limit(200)
+                        limit(500)
                     );
                     const snapshot = await getDocs(rankingsQuery);
-                    const uniqueByName = new Map();
+                    const allEntries = [];
 
                     snapshot.docs.forEach((docSnap) => {
                         const data = docSnap.data();
                         if (data.mode !== 'ranking') return;
 
-                        const key = (data.name || '').trim().toLowerCase();
-                        if (!key || uniqueByName.has(key)) return;
-                        uniqueByName.set(key, {
+                        allEntries.push({
                             id: docSnap.id,
                             ...data
                         });
                     });
 
-                    this.rankings = Array.from(uniqueByName.values())
-                        .slice(0, 10)
-                        .map((item, index) => ({
-                            ...item,
-                            rank: index + 1
-                        }));
+                    const allTimeRankings = this.buildUniqueRankings(allEntries);
+                    const weekStart = Date.now() - (7 * 24 * 60 * 60 * 1000);
+                    const weeklyRankings = this.buildUniqueRankings(allEntries, weekStart);
+                    const normalizedRunName = (runName || this.rankingNickname || '').trim().toLowerCase();
+                    const effectiveRunScore = Number(runScore ?? this.score ?? 0);
+
+                    this.rankings = allTimeRankings.slice(0, 30);
+
+                    const myAllTimeEntry = normalizedRunName
+                        ? allTimeRankings.find((item) => ((item.name || '').trim().toLowerCase() === normalizedRunName))
+                        : null;
+
+                    const bestForRun = myAllTimeEntry
+                        ? Math.max(Number(myAllTimeEntry.score || 0), effectiveRunScore)
+                        : effectiveRunScore;
+
+                    const runRank = normalizedRunName
+                        ? (allTimeRankings.findIndex((item) => Number(item.score || 0) <= bestForRun) + 1 || allTimeRankings.length + 1)
+                        : null;
+
+                    this.lastRankingResult = {
+                        runName: runName || this.rankingNickname || '',
+                        runScore: effectiveRunScore,
+                        runRank,
+                        myBestScore: myAllTimeEntry ? Number(myAllTimeEntry.score || 0) : effectiveRunScore,
+                        myBestRank: myAllTimeEntry?.rank || runRank,
+                        weeklyRankings: weeklyRankings.slice(0, 30),
+                        allTimeRankings: allTimeRankings.slice(0, 30)
+                    };
                 } catch (error) {
                     console.error('Failed to fetch rankings:', error);
                     this.rankingError = 'ランキングの取得に失敗しました。時間をおいて再度お試しください。';
                     this.rankings = [];
+                    this.lastRankingResult = null;
                 } finally {
-                    this.rankingLoading = false;
-                    this.render();
+                    if (keepLoadingState) {
+                        this.rankingLoading = false;
+                        this.render();
+                    }
                 }
             }
 
@@ -2213,12 +2276,78 @@ const LEGAL_WORDS = [
                 `;
             }
 
+            renderPodium(entries, compact = false) {
+                const podiumOrder = [1, 0, 2];
+                return `
+                    <div class="grid grid-cols-3 gap-3 items-end">
+                        ${podiumOrder.map((slotIndex) => {
+                            const rank = slotIndex + 1;
+                            const item = entries[slotIndex];
+                            const isFirst = rank === 1;
+                            const height = compact ? (isFirst ? 92 : (rank === 2 ? 74 : 64)) : (isFirst ? 132 : (rank === 2 ? 104 : 88));
+                            const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : '🥉';
+                            const glow = rank === 1
+                                ? '0 0 0 1px rgba(250,204,21,0.35), 0 16px 30px rgba(250,204,21,0.24)'
+                                : rank === 2
+                                    ? '0 0 0 1px rgba(203,213,225,0.32), 0 14px 26px rgba(148,163,184,0.22)'
+                                    : '0 0 0 1px rgba(251,146,60,0.32), 0 14px 26px rgba(251,146,60,0.2)';
+                            const gradient = rank === 1
+                                ? 'linear-gradient(180deg, rgba(255,245,157,0.95) 0%, rgba(250,204,21,0.7) 100%)'
+                                : rank === 2
+                                    ? 'linear-gradient(180deg, rgba(226,232,240,0.95) 0%, rgba(148,163,184,0.65) 100%)'
+                                    : 'linear-gradient(180deg, rgba(254,215,170,0.95) 0%, rgba(251,146,60,0.68) 100%)';
+
+                            if (!item) {
+                                return `
+                                    <div class="rounded-xl p-3 text-center" style="background: rgba(15,23,42,0.45); border: 1px dashed rgba(148,163,184,0.28); color: var(--settings-text-muted); min-height:${height + 56}px; display:flex; align-items:center; justify-content:center;">${rank}位 該当なし</div>
+                                `;
+                            }
+
+                            return `
+                                <div class="text-center rounded-2xl p-3" style="background: radial-gradient(circle at top, rgba(56,189,248,0.14), rgba(15,23,42,0.35)); border: 1px solid rgba(148,163,184,0.25); box-shadow:${glow};">
+                                    <div class="text-lg">${medal}</div>
+                                    <div class="font-black text-lg tracking-wide" style="color: var(--settings-text);">${rank}位</div>
+                                    <div class="font-bold truncate" style="color: #e2e8f0;">${this.escapeHtml(item.name || 'NO NAME')}</div>
+                                    <div class="text-xs font-mono mb-2" style="color: #67e8f9;">${Number(item.score || 0).toLocaleString()} pts</div>
+                                    <div style="height:${height}px; border-radius: 12px 12px 8px 8px; background:${gradient}; box-shadow: inset 0 1px 0 rgba(255,255,255,0.45); display:flex; align-items:flex-start; justify-content:center;">
+                                        <span class="font-black text-2xl mt-2" style="color: rgba(15,23,42,0.45);">${rank}</span>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                `;
+            }
+
+            renderRankingRows(list, maxHeight = '42vh', compact = false) {
+                return `
+                    <div class="space-y-2 overflow-y-auto pr-1" style="max-height:${maxHeight};">
+                        ${list.map((item) => `
+                            <div class="flex items-center justify-between rounded-xl px-4 ${compact ? 'py-2' : 'py-3'}" style="background: linear-gradient(90deg, rgba(15,23,42,0.7), rgba(30,41,59,0.5)); border: 1px solid rgba(148,163,184,0.22);">
+                                <div class="flex items-center gap-3 min-w-0">
+                                    <span class="font-black w-12" style="color: #facc15;">#${item.rank}</span>
+                                    <span class="font-bold truncate" style="color: var(--settings-text);">${this.escapeHtml(item.name || 'NO NAME')}</span>
+                                </div>
+                                <span class="font-mono font-bold ml-2" style="color: #67e8f9;">${Number(item.score || 0).toLocaleString()} pts</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+
             renderRankingModal() {
+                const data = this.lastRankingResult;
+                const weekly = data?.weeklyRankings || this.rankings;
+                const topThree = weekly.slice(0, 3);
+
                 return `
                     <div id="rankingOverlay" class="fixed inset-0 z-50 app-overlay flex items-center justify-center p-4">
-                        <div class="w-full max-w-xl app-panel p-6">
+                        <div class="w-full max-w-4xl app-panel p-6" style="background: radial-gradient(circle at top, rgba(8,47,73,0.28), rgba(15,23,42,0.96)); border: 1px solid rgba(56,189,248,0.3); box-shadow: 0 24px 70px rgba(8,145,178,0.25);">
                             <div class="flex items-center justify-between mb-4">
-                                <h3 class="text-2xl font-bold flex items-center gap-2" style="color: var(--settings-text);">${this.renderIcon('trophy')} オンラインランキング</h3>
+                                <div>
+                                    <h3 class="text-2xl font-black flex items-center gap-2" style="color: #e2e8f0;">${this.renderIcon('trophy')} オンラインランキング</h3>
+                                    <div class="text-xs mt-1" style="color: #94a3b8;">週間ランキング / Top 30</div>
+                                </div>
                                 <div class="flex items-center gap-2">
                                     <button id="reloadRankingBtn" class="px-3 py-2 text-sm app-btn-secondary">更新</button>
                                     <button id="closeRankingBtn" class="p-2 app-btn-secondary">${this.renderIcon('x')}</button>
@@ -2229,19 +2358,29 @@ const LEGAL_WORDS = [
                                 <div class="text-center py-8" style="color: var(--settings-text-muted);">読み込み中...</div>
                             ` : this.rankingError ? `
                                 <div class="text-center rounded-lg py-4 px-3" style="background: rgba(239,68,68,0.15); border: 1px solid rgba(248,113,113,0.38); color: #fecaca;">${this.rankingError}</div>
-                            ` : this.rankings.length === 0 ? `
+                            ` : weekly.length === 0 ? `
                                 <div class="text-center rounded-lg py-8" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(148,163,184,0.25); color: var(--settings-text-muted);">まだスコアが登録されていません。</div>
                             ` : `
-                                <div class="space-y-2 overflow-y-auto pr-1" style="max-height: 60vh;">
-                                    ${this.rankings.map((item) => `
-                                        <div class="flex items-center justify-between rounded-lg px-4 py-3" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(148,163,184,0.2);">
-                                            <div class="flex items-center gap-3">
-                                                <span class="font-black w-12" style="color: #facc15;">#${item.rank}</span>
-                                                <span class="font-bold" style="color: var(--settings-text);">${this.escapeHtml(item.name || 'NO NAME')}</span>
-                                            </div>
-                                            <span class="font-mono font-bold" style="color: #67e8f9;">${Number(item.score || 0).toLocaleString()} pts</span>
+                                <div class="space-y-5">
+                                    ${this.renderPodium(topThree)}
+                                    <div class="grid gap-4" style="grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr);">
+                                        <div class="space-y-2">
+                                            <div class="text-sm font-bold" style="color: #cbd5e1;">週間ランキング</div>
+                                            ${this.renderRankingRows(weekly, '40vh')}
                                         </div>
-                                    `).join('')}
+                                        <div class="space-y-3">
+                                            <div class="rounded-xl p-4" style="background: rgba(34,211,238,0.08); border: 1px solid rgba(34,211,238,0.35); color: var(--settings-text);">
+                                                <div class="text-xs" style="color:#a5f3fc;">YOUR BEST</div>
+                                                <div class="font-mono text-lg font-bold">${Number(data?.myBestScore || 0).toLocaleString()} pts</div>
+                                                <div class="text-sm" style="color: #bae6fd;">${data?.myBestRank ? `全体 ${data.myBestRank}位` : 'ランク未登録'}</div>
+                                            </div>
+                                            <div class="rounded-xl p-4" style="background: rgba(250,204,21,0.08); border: 1px solid rgba(250,204,21,0.3); color: #fde68a;">
+                                                <div class="text-xs">THIS RUN</div>
+                                                <div class="font-mono text-lg font-bold" style="color:#fef08a;">${Number(data?.runScore || this.score || 0).toLocaleString()} pts</div>
+                                                <div class="text-sm" style="color:#fef3c7;">${data?.runRank ? `${data.runRank}位` : '集計中...'}</div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             `}
                         </div>
@@ -2250,6 +2389,7 @@ const LEGAL_WORDS = [
             }
 
             renderMenu() {
+
                 return `
                     <div class="app-shell flex flex-col items-center justify-center p-4 font-sans select-none relative overflow-hidden">
                         ${this.renderRankingButton()}
@@ -2703,6 +2843,10 @@ const LEGAL_WORDS = [
 
             renderResults() {
                 const sortedMisses = Object.entries(this.missStats).sort(([, a], [, b]) => b - a);
+                const rankingResult = this.lastRankingResult;
+                const isRankingRun = this.currentRunMode === 'ranking';
+                const runLeaderboard = rankingResult?.allTimeRankings || [];
+                const runTopThree = runLeaderboard.slice(0, 3);
                 
                 return `
                     <div class="app-shell flex flex-col items-center justify-center p-4 font-sans select-none relative">
@@ -2710,20 +2854,33 @@ const LEGAL_WORDS = [
                         ${this.showStats ? this.renderStatsPanel() : ''}
                         ${this.showRanking ? this.renderRankingModal() : ''}
 
-                        <div class="max-w-2xl w-full app-panel p-8 space-y-8 animate-in zoom-in-95 duration-300">
+                        <div class="max-w-3xl w-full app-panel p-8 space-y-8 animate-in zoom-in-95 duration-300" style="background: radial-gradient(circle at top, rgba(2,132,199,0.2), rgba(15,23,42,0.94)); border: 1px solid rgba(56,189,248,0.3);">
                             <div class="text-center space-y-2">
-                                <h2 class="text-4xl font-bold text-white">Result</h2>
-                                <div class="text-6xl font-black ${this.settings.gameMode === 'legal' ? 'text-indigo-400' : 'text-cyan-400'}">${this.score.toLocaleString()} <span class="text-2xl text-slate-500">pts</span></div>
+                                <h2 class="text-4xl font-black text-white tracking-wide">Result</h2>
+                                <div class="text-6xl font-black ${this.settings.gameMode === 'legal' ? 'text-indigo-300' : 'text-cyan-300'}">${this.score.toLocaleString()} <span class="text-2xl text-slate-400">pts</span></div>
+                                ${isRankingRun ? `
+                                    <div class="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm" style="background: rgba(34,211,238,0.12); border: 1px solid rgba(34,211,238,0.35); color:#a5f3fc;">
+                                        ${this.isSavingRanking ? 'ランキング集計中...' : rankingResult?.runRank ? `今回の順位: <span class="font-black text-cyan-200">${rankingResult.runRank}位</span>` : 'ランキング順位を取得中...'}
+                                    </div>
+                                ` : ''}
                             </div>
+
+                            ${isRankingRun && !this.isSavingRanking && runLeaderboard.length > 0 ? `
+                                <div class="space-y-4">
+                                    <h3 class="text-lg font-bold text-slate-200 flex items-center gap-2">${this.renderIcon('trophy')} ランキング</h3>
+                                    ${this.renderPodium(runTopThree, true)}
+                                    ${this.renderRankingRows(runLeaderboard, '24vh', true)}
+                                </div>
+                            ` : ''}
 
                             <div class="grid grid-cols-2 gap-4">
                                 <div class="p-4 rounded-xl flex items-center justify-between" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(148,163,184,0.24);">
                                     <span class="text-slate-400 flex items-center gap-2">${this.renderIcon('trophy')} Max Combo</span>
-                                    <span class="text-2xl font-bold text-yellow-400">${this.maxCombo}</span>
+                                    <span class="text-2xl font-bold text-yellow-300">${this.maxCombo}</span>
                                 </div>
                                 <div class="p-4 rounded-xl flex items-center justify-between" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(148,163,184,0.24);">
                                     <span class="text-slate-400 flex items-center gap-2">${this.renderIcon('alert-circle')} Total Misses</span>
-                                    <span class="text-2xl font-bold text-red-400">
+                                    <span class="text-2xl font-bold text-red-300">
                                         ${Object.values(this.missStats).reduce((a, b) => a + b, 0)}
                                     </span>
                                 </div>
@@ -2742,13 +2899,13 @@ const LEGAL_WORDS = [
                                     <div class="grid grid-cols-5 gap-2">
                                         ${sortedMisses.slice(0, 10).map(([key, count]) => `
                                             <div class="flex flex-col items-center bg-red-900/20 border border-red-500/30 rounded-lg p-2">
-                                                <span class="text-2xl font-mono font-bold text-red-400 uppercase">${this.escapeHtml(key)}</span>
+                                                <span class="text-2xl font-mono font-bold text-red-300 uppercase">${this.escapeHtml(key)}</span>
                                                 <span class="text-xs text-red-300">${count} miss</span>
                                             </div>
                                         `).join('')}
                                     </div>
                                 ` : `
-                                    <div class="text-green-400 bg-green-900/20 p-3 rounded-lg text-center border border-green-500/30">
+                                    <div class="text-green-300 bg-green-900/20 p-3 rounded-lg text-center border border-green-500/30">
                                         Perfect Typing!
                                     </div>
                                 `}
@@ -2774,6 +2931,7 @@ const LEGAL_WORDS = [
         }
 
         // Initialize the app when DOM is ready
+
         document.addEventListener('DOMContentLoaded', () => {
             new GameApp();
         });
