@@ -432,7 +432,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, getDocs, query, where, orderBy, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, getDocs, query, orderBy, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCYY4MugI7KvfK4o-UNg4NWLnl5ZVIs6s0",
@@ -450,61 +450,15 @@
 
         const RANKING_MODE_STORAGE_KEY = 'neoTypeRankingNickname';
 
-        const RANKING_WEEKLY_PRESETS = [
-            {
-                id: 'standard-sprint',
-                title: 'スタンダードスプリント',
-                description: 'バランス型・実戦タイピング',
-                settings: {
-                    duration: 60,
-                    sound: true,
-                    displayMode: 'guide',
-                    gameMode: 'normal',
-                    weakKeyRate: 0,
-                    ignoreVowels: false,
-                    realMode: true
-                }
-            },
-            {
-                id: 'legal-attack',
-                title: 'リーガルアタック',
-                description: '法律用語チャレンジ',
-                settings: {
-                    duration: 75,
-                    sound: true,
-                    displayMode: 'guide',
-                    gameMode: 'legal',
-                    weakKeyRate: 0,
-                    ignoreVowels: false,
-                    realMode: true
-                }
-            }
-        ];
+        const RANKING_MODE_FIXED_SETTINGS = {
+            duration: 60,
+            gameMode: 'normal',
+            realMode: true,
+            weakKeyRate: 0,
+            ignoreVowels: false
+        };
 
         const cloneSettings = (settings) => JSON.parse(JSON.stringify(settings));
-
-        const getIsoWeekInfo = (date = new Date()) => {
-            const target = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-            const day = target.getUTCDay() || 7;
-            target.setUTCDate(target.getUTCDate() + 4 - day);
-            const yearStart = new Date(Date.UTC(target.getUTCFullYear(), 0, 1));
-            const weekNo = Math.ceil((((target - yearStart) / 86400000) + 1) / 7);
-            return {
-                year: target.getUTCFullYear(),
-                weekNo
-            };
-        };
-
-        const getCurrentRankingWeek = (date = new Date()) => {
-            const info = getIsoWeekInfo(date);
-            const weekPadded = String(info.weekNo).padStart(2, '0');
-            return `${info.year}-W${weekPadded}`;
-        };
-
-        const getCurrentWeeklyPreset = (date = new Date()) => {
-            const info = getIsoWeekInfo(date);
-            return RANKING_WEEKLY_PRESETS[(info.weekNo - 1) % RANKING_WEEKLY_PRESETS.length];
-        };
 
         // --- Constants: KANA_MAP ---
         const KANA_MAP = {
@@ -1579,19 +1533,14 @@ const LEGAL_WORDS = [
                 }, 600);
             }
 
-            getRankingModeConfig() {
-                const preset = getCurrentWeeklyPreset();
-                return {
-                    weekKey: getCurrentRankingWeek(),
-                    preset
-                };
-            }
-
             applyRankingModeSettings() {
-                const rankingConfig = this.getRankingModeConfig();
                 this.pendingSettingsRestore = cloneSettings(this.settings);
-                this.settings = cloneSettings(rankingConfig.preset.settings);
-                return rankingConfig;
+                this.settings = {
+                    ...this.settings,
+                    ...RANKING_MODE_FIXED_SETTINGS,
+                    displayMode: this.pendingSettingsRestore.displayMode,
+                    sound: this.pendingSettingsRestore.sound
+                };
             }
 
             restoreSettingsIfNeeded() {
@@ -1601,11 +1550,10 @@ const LEGAL_WORDS = [
             }
 
             startGame(mode = 'normal') {
-                let rankingConfig = null;
                 this.currentRunMode = mode;
 
                 if (mode === 'ranking') {
-                    rankingConfig = this.applyRankingModeSettings();
+                    this.applyRankingModeSettings();
                 } else {
                     this.restoreSettingsIfNeeded();
                 }
@@ -1619,7 +1567,6 @@ const LEGAL_WORDS = [
                 this.maxCombo = 0;
                 this.timeLeft = this.settings.duration;
                 this.feedback = null;
-                this.activeRankingConfig = rankingConfig;
                 this.pickNextWord();
                 this.startTimer();
                 this.render();
@@ -1661,14 +1608,11 @@ const LEGAL_WORDS = [
                     localStorage.setItem(RANKING_MODE_STORAGE_KEY, nickname);
                 }
 
-                const rankingConfig = this.getRankingModeConfig();
                 this.isSavingRanking = true;
 
                 try {
                     await addDoc(collection(db, 'rankings'), {
                         mode: 'ranking',
-                        weekKey: rankingConfig.weekKey,
-                        presetId: rankingConfig.preset.id,
                         name: nickname,
                         score: this.score,
                         createdAt: serverTimestamp()
@@ -1687,21 +1631,19 @@ const LEGAL_WORDS = [
                 this.rankings = [];
                 this.render();
 
-                const rankingConfig = this.getRankingModeConfig();
-
                 try {
                     const rankingsQuery = query(
                         collection(db, 'rankings'),
-                        where('mode', '==', 'ranking'),
-                        where('weekKey', '==', rankingConfig.weekKey),
                         orderBy('score', 'desc'),
-                        limit(100)
+                        limit(200)
                     );
                     const snapshot = await getDocs(rankingsQuery);
                     const uniqueByName = new Map();
 
                     snapshot.docs.forEach((docSnap) => {
                         const data = docSnap.data();
+                        if (data.mode !== 'ranking') return;
+
                         const key = (data.name || '').trim().toLowerCase();
                         if (!key || uniqueByName.has(key)) return;
                         uniqueByName.set(key, {
@@ -1749,8 +1691,9 @@ const LEGAL_WORDS = [
                     autoWeakKeys = autoWeakKeys.filter(k => !vowels.includes(k));
                 }
 
-                const manualFocusKeys = this.focusKeys || [];
-                let targetKeys = Array.from(new Set([...autoWeakKeys, ...manualFocusKeys]));
+                const isRankingMode = this.currentRunMode === 'ranking';
+                const manualFocusKeys = isRankingMode ? [] : (this.focusKeys || []);
+                let targetKeys = isRankingMode ? [] : Array.from(new Set([...autoWeakKeys, ...manualFocusKeys]));
 
                 if (this.settings.ignoreVowels) {
                     const vowels = ['a', 'i', 'u', 'e', 'o', '-'];
@@ -2056,17 +1999,11 @@ const LEGAL_WORDS = [
                     <div id="rankingOverlay" class="fixed inset-0 z-50 bg-slate-900/80 flex items-center justify-center p-4">
                         <div class="w-full max-w-xl bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl p-6">
                             <div class="flex items-center justify-between mb-4">
-                                <h3 class="text-2xl font-bold text-amber-300 flex items-center gap-2">${this.renderIcon('trophy')} 週間ランキングモード</h3>
+                                <h3 class="text-2xl font-bold text-amber-300 flex items-center gap-2">${this.renderIcon('trophy')} オンラインランキング</h3>
                                 <div class="flex items-center gap-2">
                                     <button id="reloadRankingBtn" class="px-3 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-bold">更新</button>
                                     <button id="closeRankingBtn" class="p-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200">${this.renderIcon('x')}</button>
                                 </div>
-                            </div>
-
-                            <div class="mb-3 text-xs text-slate-300 bg-slate-900/50 border border-slate-700 rounded-lg p-3">
-                                <div>対象週: <span class="font-mono text-cyan-300">${this.getRankingModeConfig().weekKey}</span></div>
-                                <div>今週ルール: <span class="text-amber-300 font-bold">${this.getRankingModeConfig().preset.title}</span> / ${this.getRankingModeConfig().preset.description}</div>
-                                <div>同一ニックネームは最高スコア1件のみ表示されます。</div>
                             </div>
 
                             ${this.rankingLoading ? `
@@ -2128,8 +2065,7 @@ const LEGAL_WORDS = [
                                     <button id="rankingStartBtn" class="w-full px-8 py-3 rounded-xl font-bold text-lg bg-amber-600 hover:bg-amber-500 text-slate-900 transition-all shadow-[0_0_20px_rgba(245,158,11,0.35)]">
                                         ${this.renderIcon('trophy')} RANKING MODE START
                                     </button>
-                                    <div class="text-xs text-slate-500 font-mono">Press [SPACE] to Start (Normal Mode)</div>
-                                    <div class="text-[11px] text-amber-300/90">ランキングモードは週替わり固定ルール・ニックネーム固定・1人1スコア表示</div>
+                                    <div class="text-xs text-slate-500 font-mono">Press [SPACE] to Start</div>
                                 </div>
 
                                 <button id="statsBtn" class="w-full py-3 mt-2 bg-slate-700/50 hover:bg-slate-700 rounded-xl font-bold text-slate-300 hover:text-white transition-all border border-slate-600 flex items-center justify-center gap-2">
@@ -2172,7 +2108,6 @@ const LEGAL_WORDS = [
                             <h2 class="text-2xl font-bold flex items-center gap-2 border-b border-slate-700 pb-4">
                                 ${this.renderIcon('settings')} Settings
                             </h2>
-                            <p class="text-xs text-slate-500">※ ランキングモードでは、ここでの設定は使われず週替わり固定ルールが適用されます。</p>
                             
                             <div class="space-y-2">
                                 <label class="text-slate-400 text-sm font-bold uppercase tracking-wider flex items-center gap-2">
