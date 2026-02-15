@@ -1,119 +1,521 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Play, RotateCcw, Keyboard, Trophy, AlertCircle, Zap, Trash2, Settings, Volume2, VolumeX, Clock, BarChart2, X, Target, CheckSquare, Eye, EyeOff, Languages, Pause, LogOut, Home, Scale, Gavel, BookOpen, Sliders, Delete } from 'lucide-react';
+<!DOCTYPE html>
+<html lang="ja">
+<!--
+    NEO-TYPE - Japanese Typing Game
+    Converted from React to Vanilla JavaScript
+    
+    Features:
+    - Adaptive difficulty with weak key tracking
+    - 585 words + 200 legal terms
+    - Real mode with backspace support
+    - Multiple display modes (IME, Guide, Input)
+    - Sound effects with Web Audio API
+    - LocalStorage for stats persistence
+    
+    No build tools required - just open in a browser!
+    © Tadashi Kotegawa
+-->
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEO-TYPE - さよなら苦手キー</title>
+    <style>
+        /* Reset and base styles */
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 0; }
+        
+        /* Custom animations */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-4px); }
+            75% { transform: translateX(4px); }
+        }
+        .animate-shake {
+            animation: shake 0.2s cubic-bezier(.36,.07,.19,.97) both;
+        }
+        
+        @keyframes floatUp {
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            50% { opacity: 1; transform: translateY(-20px) scale(1.1); }
+            100% { opacity: 0; transform: translateY(-40px) scale(1.2); }
+        }
+        .animate-float-up {
+            animation: floatUp 0.6s ease-out forwards;
+        }
 
-// --- ローマ字変換テーブル (完全柔軟化版・X優先・分解打ち網羅) ---
-const KANA_MAP = {
-  'あ': ['a'], 'い': ['i', 'yi'], 'う': ['u', 'wu', 'whu'], 'え': ['e'], 'お': ['o'],
-  'か': ['ka', 'ca'], 'き': ['ki'], 'く': ['ku', 'cu', 'qu'], 'け': ['ke'], 'こ': ['ko', 'co'],
-  'さ': ['sa'], 'し': ['shi', 'si', 'ci'], 'す': ['su'], 'せ': ['se', 'ce'], 'そ': ['so'],
-  'た': ['ta'], 'ち': ['chi', 'ti'], 'つ': ['tsu', 'tu'], 'て': ['te'], 'と': ['to'],
-  'な': ['na'], 'に': ['ni'], 'ぬ': ['nu'], 'ね': ['ne'], 'の': ['no'],
-  'は': ['ha'], 'ひ': ['hi'], 'ふ': ['fu', 'hu'], 'へ': ['he'], 'ほ': ['ho'],
-  'ま': ['ma'], 'み': ['mi'], 'む': ['mu'], 'め': ['me'], 'も': ['mo'],
-  'や': ['ya'], 'ゆ': ['yu'], 'よ': ['yo'],
-  'ら': ['ra'], 'り': ['ri'], 'る': ['ru'], 'れ': ['re'], 'ろ': ['ro'],
-  'わ': ['wa'], 'を': ['wo'], 'ん': ['nn', 'xn', 'n'],
-  'が': ['ga'], 'ぎ': ['gi'], 'ぐ': ['gu'], 'げ': ['ge'], 'ご': ['go'],
-  'ざ': ['za'], 'じ': ['ji', 'zi'], 'ず': ['zu'], 'ぜ': ['ze'], 'ぞ': ['zo'],
-  'だ': ['da'], 'ぢ': ['ji', 'di'], 'づ': ['zu', 'du'], 'で': ['de'], 'ど': ['do'],
-  'ば': ['ba'], 'び': ['bi'], 'ぶ': ['bu'], 'べ': ['be'], 'ぼ': ['bo'],
-  'ぱ': ['pa'], 'ぴ': ['pi'], 'ぷ': ['pu'], 'ぺ': ['pe'], 'ぽ': ['po'],
-  // 小さい文字 (X優先)
-  'ぁ': ['xa', 'la'], 'ぃ': ['xi', 'li'], 'ぅ': ['xu', 'lu'], 'ぇ': ['xe', 'le'], 'ぉ': ['xo', 'lo'],
-  'ゃ': ['xya', 'lya'], 'ゅ': ['xyu', 'lyu'], 'ょ': ['xyo', 'lyo'], 
-  'っ': ['xtu', 'xtsu', 'ltsu', 'ltu'], // 修正: tsu(つ)を除外、ltuを追加
-  'ー': ['-']
-};
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .animate-in { animation: fadeIn 0.2s ease-in; }
+        .fade-in { animation: fadeIn 0.3s ease-in; }
 
-// 拗音・特殊音 (2文字以上で構成される音)
-// 基本形に加え、分解打ち（前の文字 + x/l + 小さい文字）も網羅
-const COMBO_MAP = {
-  // きゃ行
-  'きゃ': ['kya', 'kicya', 'kixya', 'kilya'], 
-  'きゅ': ['kyu', 'kicyu', 'kixyu', 'kilyu'], 
-  'きょ': ['kyo', 'kicyo', 'kixyo', 'kilyo'],
-  // しゃ行
-  'しゃ': ['sha', 'sya', 'shixya', 'shilya', 'sixya', 'silya', 'cixya', 'cilya'], 
-  'しゅ': ['shu', 'syu', 'shixyu', 'shilyu', 'sixyu', 'silyu', 'cixyu', 'cilyu'], 
-  'しょ': ['sho', 'syo', 'shixyo', 'shilyo', 'sixyo', 'silyo', 'cixyo', 'cilyo'],
-  // ちゃ行
-  'ちゃ': ['cha', 'tya', 'cya', 'chixya', 'chilya', 'tixya', 'tilya'], 
-  'ちゅ': ['chu', 'tyu', 'cyu', 'chixyu', 'chilyu', 'tixyu', 'tilyu'], 
-  'ちょ': ['cho', 'tyo', 'cyo', 'chixyo', 'chilyo', 'tixya', 'tilyo'],
-  // にゃ行
-  'にゃ': ['nya', 'nixya', 'nilya'], 
-  'にゅ': ['nyu', 'nixyu', 'nilyu'], 
-  'にょ': ['nyo', 'nixyo', 'nilyo'],
-  // ひゃ行
-  'ひゃ': ['hya', 'hixya', 'hilya'], 
-  'ひゅ': ['hyu', 'hixyu', 'hilyu'], 
-  'ひょ': ['hyo', 'hixyo', 'hilyo'],
-  // みゃ行
-  'みゃ': ['mya', 'mixya', 'milya'], 
-  'みゅ': ['myu', 'mixyu', 'milyu'], 
-  'みょ': ['myo', 'mixyo', 'milyo'],
-  // りゃ行
-  'りゃ': ['rya', 'rixya', 'rilya'], 
-  'りゅ': ['ryu', 'rixyu', 'rilyu'], 
-  'りょ': ['ryo', 'rixyo', 'rilyu'],
-  // ぎゃ行
-  'ぎゃ': ['gya', 'gixya', 'gilya'], 
-  'ぎゅ': ['gyu', 'gixyu', 'gilyu'], 
-  'ぎょ': ['gyo', 'gixyo', 'gilyo'],
-  // じゃ行
-  'じゃ': ['ja', 'jya', 'zya', 'jixya', 'jilya', 'zixya', 'zilya'], 
-  'じゅ': ['ju', 'jyu', 'zyu', 'jixyu', 'jilyu', 'zixyu', 'zilyu'], 
-  'じょ': ['jo', 'jyo', 'zyo', 'jixyo', 'jilyo', 'zixyo', 'zilyo'],
-  // びゃ行
-  'びゃ': ['bya', 'bixya', 'bilya'], 
-  'びゅ': ['byu', 'bixyu', 'bilyu'], 
-  'びょ': ['byo', 'bixyo', 'bilyo'],
-  // ぴゃ行
-  'ぴゃ': ['pya', 'pixya', 'pilya'], 
-  'ぴゅ': ['pyu', 'pixyu', 'pilyu'], 
-  'ぴょ': ['pyo', 'pixyo', 'pilyo'],
-  
-  // ふぁ行 (ユーザー要望の huxi 等を含む)
-  'ふぁ': ['fa', 'fwa', 'fuxa', 'fula', 'huxa', 'hula'], 
-  'ふぃ': ['fi', 'fyi', 'fuxi', 'fuli', 'huxi', 'huli'], 
-  'ふぇ': ['fe', 'fye', 'fuxe', 'fule', 'huxe', 'hule'], 
-  'ふぉ': ['fo', 'fwo', 'fuxo', 'fulo', 'huxo', 'hulo'],
-  
-  // ゔ行
-  'ゔ': ['vu'], 'う゛': ['vu'],
-  'ゔぁ': ['va', 'vuxa', 'vula'], 
-  'ゔぃ': ['vi', 'vuxi', 'vuli'], 
-  'ゔぇ': ['ve', 'vuxe', 'vule'], 
-  'ゔぉ': ['vo', 'vuxo', 'vulo'],
-  
-  // てぃ・でぃ・とぅ・どぅ
-  'てぃ': ['thi', 'tei', 'texi', 'teli'], 
-  'でぃ': ['dhi', 'dei', 'dexi', 'deli'],
-  'とぅ': ['twu', 'toxu', 'tolu'],
-  'どぅ': ['dwu', 'doxu', 'dolu'],
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
 
-  // うぃ・うぇ・うぉ
-  'うぃ': ['wi', 'whi', 'uxi', 'uli'], 
-  'うぇ': ['we', 'whe', 'uxe', 'ule'], 
-  'うぉ': ['who', 'uxo', 'ulo'], 
-  
-  // くぁ行
-  'くぁ': ['qa', 'kwa', 'kuxa', 'kula'], 
-  'くぃ': ['qi', 'kwi', 'kuxi', 'kuli'], 
-  'くぇ': ['qe', 'kwe', 'kuxe', 'kule'], 
-  'くぉ': ['qo', 'kwo', 'kuxo', 'kulo'],
-  
-  // つぁ行
-  'つぁ': ['tsa', 'tsuxa', 'tsula'], 
-  'つぃ': ['tsi', 'tsuxi', 'tsuli'], 
-  'つぇ': ['tse', 'tsuxe', 'tsule'], 
-  'つぉ': ['tso', 'tsuxo', 'tsulo'],
-  
-  // しぇ・じぇ・ちぇ
-  'しぇ': ['she', 'sye', 'shixe', 'shile', 'sixe', 'sile'],
-  'じぇ': ['je', 'jye', 'jixe', 'jile', 'zixe', 'zile'],
-  'ちぇ': ['che', 'tye', 'chixe', 'chile', 'tixe', 'tile']
-};
+        @keyframes zoomIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .zoom-in-95 { animation: zoomIn 0.2s ease-out; }
+
+        .grid-stack {
+            display: grid;
+        }
+        
+        .grid-stack > * {
+            grid-area: 1 / 1;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgb(30, 41, 59);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgb(71, 85, 105);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgb(100, 116, 139);
+        }
+
+        /* Layout utilities */
+        .block { display: block; }
+        .inline-block { display: inline-block; }
+        .inline-flex { display: inline-flex; }
+        .flex { display: flex; }
+        .grid { display: grid; }
+        .hidden { display: none; }
+        
+        .flex-col { flex-direction: column; }
+        .flex-wrap { flex-wrap: wrap; }
+        .flex-1 { flex: 1 1 0%; }
+        
+        .items-center { align-items: center; }
+        .items-end { align-items: flex-end; }
+        .justify-center { justify-content: center; }
+        .justify-between { justify-content: space-between; }
+        .justify-items-center { justify-items: center; }
+        
+        .grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+        .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .grid-cols-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+        .col-start-1 { grid-column-start: 1; }
+        .row-start-1 { grid-row-start: 1; }
+        
+        @media (min-width: 640px) {
+            .sm\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        
+        /* Positioning */
+        .static { position: static; }
+        .relative { position: relative; }
+        .absolute { position: absolute; }
+        .sticky { position: sticky; }
+        
+        .inset-0 { top: 0; right: 0; bottom: 0; left: 0; }
+        .top-0 { top: 0; }
+        .top-1 { top: 0.25rem; }
+        .top-4 { top: 1rem; }
+        .top-6 { top: 1.5rem; }
+        .top-1\/4 { top: 25%; }
+        .-top-4 { top: -1rem; }
+        .bottom-0 { bottom: 0; }
+        .bottom-4 { bottom: 1rem; }
+        .left-0 { left: 0; }
+        .left-1 { left: 0.25rem; }
+        .left-1\/2 { left: 50%; }
+        .right-4 { right: 1rem; }
+        .right-6 { right: 1.5rem; }
+        
+        .z-10 { z-index: 10; }
+        .z-40 { z-index: 40; }
+        .z-50 { z-index: 50; }
+        .z-\[60\] { z-index: 60; }
+        
+        /* Spacing */
+        .p-1 { padding: 0.25rem; }
+        .p-2 { padding: 0.5rem; }
+        .p-3 { padding: 0.75rem; }
+        .p-4 { padding: 1rem; }
+        .p-6 { padding: 1.5rem; }
+        .p-8 { padding: 2rem; }
+        .p-12 { padding: 3rem; }
+        
+        .px-2 { padding-left: 0.5rem; padding-right: 0.5rem; }
+        .px-4 { padding-left: 1rem; padding-right: 1rem; }
+        .px-6 { padding-left: 1.5rem; padding-right: 1.5rem; }
+        .px-8 { padding-left: 2rem; padding-right: 2rem; }
+        .py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
+        .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+        .py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+        .py-4 { padding-top: 1rem; padding-bottom: 1rem; }
+        .pt-2 { padding-top: 0.5rem; }
+        .pt-4 { padding-top: 1rem; }
+        .pb-4 { padding-bottom: 1rem; }
+        
+        .m-0 { margin: 0; }
+        .mx-8 { margin-left: 2rem; margin-right: 2rem; }
+        .mb-1 { margin-bottom: 0.25rem; }
+        .mb-2 { margin-bottom: 0.5rem; }
+        .mb-4 { margin-bottom: 1rem; }
+        .mb-8 { margin-bottom: 2rem; }
+        .mt-2 { margin-top: 0.5rem; }
+        .mt-4 { margin-top: 1rem; }
+        .mt-12 { margin-top: 3rem; }
+        .ml-2 { margin-left: 0.5rem; }
+        .ml-\[1px\] { margin-left: 1px; }
+        .-mt-\[0\.2em\] { margin-top: -0.2em; }
+        
+        .space-y-1 > * + * { margin-top: 0.25rem; }
+        .space-y-2 > * + * { margin-top: 0.5rem; }
+        .space-y-3 > * + * { margin-top: 0.75rem; }
+        .space-y-4 > * + * { margin-top: 1rem; }
+        .space-y-6 > * + * { margin-top: 1.5rem; }
+        .space-y-8 > * + * { margin-top: 2rem; }
+        
+        .gap-1 { gap: 0.25rem; }
+        .gap-2 { gap: 0.5rem; }
+        .gap-3 { gap: 0.75rem; }
+        .gap-4 { gap: 1rem; }
+        
+        /* Sizing */
+        .w-5 { width: 1.25rem; }
+        .w-12 { width: 3rem; }
+        .w-full { width: 100%; }
+        .w-\[2px\] { width: 2px; }
+        
+        .h-1 { height: 0.25rem; }
+        .h-2 { height: 0.5rem; }
+        .h-5 { height: 1.25rem; }
+        .h-7 { height: 1.75rem; }
+        .h-24 { height: 6rem; }
+        .h-full { height: 100%; }
+        .h-\[1em\] { height: 1em; }
+        .h-\[80vh\] { height: 80vh; }
+        
+        .min-h-screen { min-height: 100vh; }
+        .min-w-\[1ch\] { min-width: 1ch; }
+        .max-w-xs { max-width: 20rem; }
+        .max-w-md { max-width: 28rem; }
+        .max-w-xl { max-width: 36rem; }
+        .max-w-2xl { max-width: 42rem; }
+        .max-w-3xl { max-width: 48rem; }
+        .max-w-4xl { max-width: 56rem; }
+        .max-h-\[85vh\] { max-height: 85vh; }
+        
+        /* Typography */
+        .font-sans { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        .font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+        
+        .text-xs { font-size: 0.75rem; line-height: 1rem; }
+        .text-sm { font-size: 0.875rem; line-height: 1.25rem; }
+        .text-lg { font-size: 1.125rem; line-height: 1.75rem; }
+        .text-xl { font-size: 1.25rem; line-height: 1.75rem; }
+        .text-2xl { font-size: 1.5rem; line-height: 2rem; }
+        .text-3xl { font-size: 1.875rem; line-height: 2.25rem; }
+        .text-4xl { font-size: 2.25rem; line-height: 2.5rem; }
+        .text-5xl { font-size: 3rem; line-height: 1; }
+        .text-6xl { font-size: 3.75rem; line-height: 1; }
+        .text-\[10px\] { font-size: 10px; }
+        
+        @media (min-width: 768px) {
+            .md\:text-6xl { font-size: 3.75rem; line-height: 1; }
+            .md\:text-7xl { font-size: 4.5rem; line-height: 1; }
+        }
+        
+        .font-normal { font-weight: 400; }
+        .font-medium { font-weight: 500; }
+        .font-bold { font-weight: 700; }
+        .font-black { font-weight: 900; }
+        
+        .text-left { text-align: left; }
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        
+        .uppercase { text-transform: uppercase; }
+        .underline { text-decoration: underline; }
+        
+        .tracking-tighter { letter-spacing: -0.05em; }
+        .tracking-wide { letter-spacing: 0.025em; }
+        .tracking-wider { letter-spacing: 0.05em; }
+        .tracking-widest { letter-spacing: 0.1em; }
+        
+        .leading-none { line-height: 1; }
+        .leading-relaxed { line-height: 1.625; }
+        
+        .align-middle { vertical-align: middle; }
+        
+        .whitespace-nowrap { white-space: nowrap; }
+        .whitespace-pre { white-space: pre; }
+        .break-all { word-break: break-all; }
+        .text-ellipsis { text-overflow: ellipsis; }
+        
+        /* Colors */
+        .text-white { color: rgb(255, 255, 255); }
+        .text-slate-200 { color: rgb(226, 232, 240); }
+        .text-slate-300 { color: rgb(203, 213, 225); }
+        .text-slate-400 { color: rgb(148, 163, 184); }
+        .text-slate-500 { color: rgb(100, 116, 139); }
+        .text-slate-600 { color: rgb(71, 85, 105); }
+        .text-slate-700 { color: rgb(51, 65, 85); }
+        .text-cyan-400 { color: rgb(34, 211, 238); }
+        .text-cyan-500 { color: rgb(6, 182, 212); }
+        .text-indigo-300 { color: rgb(165, 180, 252); }
+        .text-indigo-400 { color: rgb(129, 140, 248); }
+        .text-red-300 { color: rgb(252, 165, 165); }
+        .text-red-400 { color: rgb(248, 113, 113); }
+        .text-green-400 { color: rgb(74, 222, 128); }
+        .text-yellow-400 { color: rgb(250, 204, 21); }
+        .text-transparent { color: transparent; }
+        
+        .bg-white { background-color: rgb(255, 255, 255); }
+        .bg-slate-600 { background-color: rgb(71, 85, 105); }
+        .bg-slate-700 { background-color: rgb(51, 65, 85); }
+        .bg-slate-800 { background-color: rgb(30, 41, 59); }
+        .bg-slate-900 { background-color: rgb(15, 23, 42); }
+        .bg-slate-700\/50 { background-color: rgba(51, 65, 85, 0.5); }
+        .bg-slate-800\/50 { background-color: rgba(30, 41, 59, 0.5); }
+        .bg-slate-900\/50 { background-color: rgba(15, 23, 42, 0.5); }
+        .bg-slate-900\/80 { background-color: rgba(15, 23, 42, 0.8); }
+        .bg-slate-900\/90 { background-color: rgba(15, 23, 42, 0.9); }
+        .bg-slate-900\/95 { background-color: rgba(15, 23, 42, 0.95); }
+        .bg-cyan-600 { background-color: rgb(8, 145, 178); }
+        .bg-indigo-900 { background-color: rgb(49, 46, 129); }
+        .bg-red-900 { background-color: rgb(127, 29, 29); }
+        .bg-red-900\/20 { background-color: rgba(127, 29, 29, 0.2); }
+        .bg-green-500 { background-color: rgb(34, 197, 94); }
+        .bg-green-900\/20 { background-color: rgba(20, 83, 45, 0.2); }
+        .bg-yellow-400 { background-color: rgb(250, 204, 21); }
+        .bg-yellow-600\/90 { background-color: rgba(202, 138, 4, 0.9); }
+        .bg-cyan-500 { background-color: rgb(6, 182, 212); }
+        .bg-indigo-500 { background-color: rgb(99, 102, 241); }
+        .bg-indigo-500\/20 { background-color: rgba(99, 102, 241, 0.2); }
+        .bg-indigo-600 { background-color: rgb(79, 70, 229); }
+        .bg-red-500 { background-color: rgb(239, 68, 68); }
+        .bg-red-500\/20 { background-color: rgba(239, 68, 68, 0.2); }
+        
+        .bg-gradient-to-r { background-image: linear-gradient(to right, var(--tw-gradient-stops)); }
+        .from-cyan-400 { --tw-gradient-from: rgb(34, 211, 238); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to, rgba(34, 211, 238, 0)); }
+        .to-blue-600 { --tw-gradient-to: rgb(37, 99, 235); }
+        .bg-clip-text { -webkit-background-clip: text; background-clip: text; }
+        
+        .border { border-width: 1px; }
+        .border-b { border-bottom-width: 1px; }
+        .border-t { border-top-width: 1px; }
+        
+        .border-slate-600 { border-color: rgb(71, 85, 105); }
+        .border-slate-700 { border-color: rgb(51, 65, 85); }
+        .border-slate-800 { border-color: rgb(30, 41, 59); }
+        .border-slate-600\/50 { border-color: rgba(71, 85, 105, 0.5); }
+        .border-slate-700\/50 { border-color: rgba(51, 65, 85, 0.5); }
+        .border-indigo-700 { border-color: rgb(67, 56, 202); }
+        .border-indigo-900\/50 { border-color: rgba(49, 46, 129, 0.5); }
+        .border-red-700 { border-color: rgb(185, 28, 28); }
+        .border-green-500\/30 { border-color: rgba(34, 197, 94, 0.3); }
+        .border-red-500\/30 { border-color: rgba(239, 68, 68, 0.3); }
+        .border-yellow-400\/50 { border-color: rgba(250, 204, 21, 0.5); }
+        
+        .rounded-lg { border-radius: 0.5rem; }
+        .rounded-xl { border-radius: 0.75rem; }
+        .rounded-2xl { border-radius: 1rem; }
+        .rounded-3xl { border-radius: 1.5rem; }
+        .rounded-full { border-radius: 9999px; }
+        .rounded-b-2xl { border-bottom-left-radius: 1rem; border-bottom-right-radius: 1rem; }
+        
+        /* Effects */
+        .shadow-md { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
+        .shadow-lg { box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); }
+        .shadow-xl { box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); }
+        .shadow-2xl { box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); }
+        .shadow-\[0_0_20px_rgba\(8\,145\,178\,0\.5\)\] { box-shadow: 0 0 20px rgba(8, 145, 178, 0.5); }
+        .shadow-\[0_0_50px_rgba\(0\,0\,0\,0\.3\)\] { box-shadow: 0 0 50px rgba(0, 0, 0, 0.3); }
+        .shadow-indigo-900\/20 { box-shadow: 0 20px 25px -5px rgba(49, 46, 129, 0.2), 0 10px 10px -5px rgba(49, 46, 129, 0.2); }
+        .drop-shadow-lg { filter: drop-shadow(0 10px 8px rgba(0, 0, 0, 0.04)) drop-shadow(0 4px 3px rgba(0, 0, 0, 0.1)); }
+        
+        .opacity-0 { opacity: 0; }
+        .opacity-80 { opacity: 0.8; }
+        
+        .backdrop-blur { backdrop-filter: blur(8px); }
+        .backdrop-blur-sm { backdrop-filter: blur(4px); }
+        .backdrop-blur-md { backdrop-filter: blur(12px); }
+        
+        .filter { filter: var(--tw-filter); }
+        
+        /* Transforms */
+        .transform { transform: translateX(var(--tw-translate-x, 0)) translateY(var(--tw-translate-y, 0)) rotate(var(--tw-rotate, 0)) skewX(var(--tw-skew-x, 0)) skewY(var(--tw-skew-y, 0)) scaleX(var(--tw-scale-x, 1)) scaleY(var(--tw-scale-y, 1)); }
+        .scale-75 { --tw-scale-x: 0.75; --tw-scale-y: 0.75; transform: scale(0.75); }
+        .-translate-x-1\/2 { transform: translateX(-50%); }
+        .translate-x-0 { transform: translateX(0); }
+        .translate-x-5 { transform: translateX(1.25rem); }
+        .origin-right { transform-origin: right; }
+        
+        /* Transitions */
+        .transition-all { transition-property: all; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 150ms; }
+        .transition-colors { transition-property: color, background-color, border-color, fill, stroke; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 150ms; }
+        .transition-transform { transition-property: transform; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 150ms; }
+        .duration-75 { transition-duration: 75ms; }
+        .duration-200 { transition-duration: 200ms; }
+        .duration-300 { transition-duration: 300ms; }
+        .duration-1000 { transition-duration: 1000ms; }
+        .ease-in-out { transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); }
+        .ease-linear { transition-timing-function: linear; }
+        
+        /* Interactive */
+        .cursor-pointer { cursor: pointer; }
+        .select-none { user-select: none; }
+        .appearance-none { appearance: none; }
+        .pointer-events-none { pointer-events: none; }
+        
+        .accent-cyan-500 { accent-color: rgb(6, 182, 212); }
+        
+        /* Overflow */
+        .overflow-hidden { overflow: hidden; }
+        .overflow-y-auto { overflow-y: auto; }
+        
+        /* Hover states */
+        .hover\:bg-slate-500:hover { background-color: rgb(100, 116, 139); }
+        .hover\:bg-slate-600:hover { background-color: rgb(71, 85, 105); }
+        .hover\:bg-slate-700:hover { background-color: rgb(51, 65, 85); }
+        .hover\:bg-cyan-500:hover { background-color: rgb(6, 182, 212); }
+        .hover\:bg-indigo-500:hover { background-color: rgb(99, 102, 241); }
+        .hover\:bg-red-900\/20:hover { background-color: rgba(127, 29, 29, 0.2); }
+        .hover\:border-cyan-400:hover { border-color: rgb(34, 211, 238); }
+        .hover\:text-white:hover { color: rgb(255, 255, 255); }
+        .hover\:text-cyan-300:hover { color: rgb(103, 232, 249); }
+        .hover\:text-cyan-400:hover { color: rgb(34, 211, 238); }
+        .hover\:text-red-300:hover { color: rgb(252, 165, 165); }
+        .hover\:shadow-cyan-500\/25:hover { box-shadow: 0 20px 25px -5px rgba(6, 182, 212, 0.25), 0 10px 10px -5px rgba(6, 182, 212, 0.25); }
+        .hover\:shadow-\[0_0_30px_rgba\(34\,211\,238\,0\.6\)\]:hover { box-shadow: 0 0 30px rgba(34, 211, 238, 0.6); }
+        
+        /* Group hover */
+        .group:hover .group-hover\:text-cyan-400 { color: rgb(34, 211, 238); }
+    </style>
+</head>
+<body>
+    <script>
+        // Inline SVG icons to replace Feather Icons
+        const INLINE_ICONS = {
+            'play': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>',
+            'pause': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>',
+            'rotate-ccw': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>',
+            'settings': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>',
+            'x': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>',
+            'target': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>',
+            'zap': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>',
+            'clock': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>',
+            'trophy': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path></svg>',
+            'bar-chart-2': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>',
+            'keyboard': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10"></path></svg>',
+            'eye': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>',
+            'eye-off': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>',
+            'volume-2': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>',
+            'volume-x': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>',
+            'trash-2': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>',
+            'log-out': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>',
+            'alert-circle': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>',
+            'book-open': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>',
+            'scale': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"></path><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"></path><path d="M7 21h10"></path><path d="M12 3v18"></path><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"></path></svg>',
+            'languages': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 8 6 6"></path><path d="m4 14 6-6 2-3"></path><path d="M2 5h12"></path><path d="M7 2h1"></path><path d="m22 22-5-10-5 10"></path><path d="M14 18h6"></path></svg>',
+            'delete': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 5H9l-7 7 7 7h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Z"></path><line x1="18" y1="9" x2="12" y2="15"></line><line x1="12" y1="9" x2="18" y2="15"></line></svg>'
+        };
+    </script>
+    <div id="app"></div>
+
+    <script>
+        // --- Constants: KANA_MAP ---
+        const KANA_MAP = {
+            'あ': ['a'], 'い': ['i', 'yi'], 'う': ['u', 'wu', 'whu'], 'え': ['e'], 'お': ['o'],
+            'か': ['ka', 'ca'], 'き': ['ki'], 'く': ['ku', 'cu', 'qu'], 'け': ['ke'], 'こ': ['ko', 'co'],
+            'さ': ['sa'], 'し': ['shi', 'si', 'ci'], 'す': ['su'], 'せ': ['se', 'ce'], 'そ': ['so'],
+            'た': ['ta'], 'ち': ['chi', 'ti'], 'つ': ['tsu', 'tu'], 'て': ['te'], 'と': ['to'],
+            'な': ['na'], 'に': ['ni'], 'ぬ': ['nu'], 'ね': ['ne'], 'の': ['no'],
+            'は': ['ha'], 'ひ': ['hi'], 'ふ': ['fu', 'hu'], 'へ': ['he'], 'ほ': ['ho'],
+            'ま': ['ma'], 'み': ['mi'], 'む': ['mu'], 'め': ['me'], 'も': ['mo'],
+            'や': ['ya'], 'ゆ': ['yu'], 'よ': ['yo'],
+            'ら': ['ra'], 'り': ['ri'], 'る': ['ru'], 'れ': ['re'], 'ろ': ['ro'],
+            'わ': ['wa'], 'を': ['wo'], 'ん': ['nn', 'xn', 'n'],
+            'が': ['ga'], 'ぎ': ['gi'], 'ぐ': ['gu'], 'げ': ['ge'], 'ご': ['go'],
+            'ざ': ['za'], 'じ': ['ji', 'zi'], 'ず': ['zu'], 'ぜ': ['ze'], 'ぞ': ['zo'],
+            'だ': ['da'], 'ぢ': ['ji', 'di'], 'づ': ['zu', 'du'], 'で': ['de'], 'ど': ['do'],
+            'ば': ['ba'], 'び': ['bi'], 'ぶ': ['bu'], 'べ': ['be'], 'ぼ': ['bo'],
+            'ぱ': ['pa'], 'ぴ': ['pi'], 'ぷ': ['pu'], 'ぺ': ['pe'], 'ぽ': ['po'],
+            'ぁ': ['xa', 'la'], 'ぃ': ['xi', 'li'], 'ぅ': ['xu', 'lu'], 'ぇ': ['xe', 'le'], 'ぉ': ['xo', 'lo'],
+            'ゃ': ['xya', 'lya'], 'ゅ': ['xyu', 'lyu'], 'ょ': ['xyo', 'lyo'], 
+            'っ': ['xtu', 'xtsu', 'ltsu', 'ltu'],
+            'ー': ['-']
+        };
+
+        // --- Constants: COMBO_MAP ---
+        const COMBO_MAP = {
+            'きゃ': ['kya', 'kicya', 'kixya', 'kilya'], 
+            'きゅ': ['kyu', 'kicyu', 'kixyu', 'kilyu'], 
+            'きょ': ['kyo', 'kicyo', 'kixyo', 'kilyo'],
+            'しゃ': ['sha', 'sya', 'shixya', 'shilya', 'sixya', 'silya', 'cixya', 'cilya'], 
+            'しゅ': ['shu', 'syu', 'shixyu', 'shilyu', 'sixyu', 'silyu', 'cixyu', 'cilyu'], 
+            'しょ': ['sho', 'syo', 'shixyo', 'shilyo', 'sixyo', 'silyo', 'cixyo', 'cilyo'],
+            'ちゃ': ['cha', 'tya', 'cya', 'chixya', 'chilya', 'tixya', 'tilya'], 
+            'ちゅ': ['chu', 'tyu', 'cyu', 'chixyu', 'chilyu', 'tixyu', 'tilyu'], 
+            'ちょ': ['cho', 'tyo', 'cyo', 'chixyo', 'chilyo', 'tixyo', 'tilyo'],
+            'にゃ': ['nya', 'nixya', 'nilya'], 
+            'にゅ': ['nyu', 'nixyu', 'nilyu'], 
+            'にょ': ['nyo', 'nixyo', 'nilyo'],
+            'ひゃ': ['hya', 'hixya', 'hilya'], 
+            'ひゅ': ['hyu', 'hixyu', 'hilyu'], 
+            'ひょ': ['hyo', 'hixyo', 'hilyo'],
+            'みゃ': ['mya', 'mixya', 'milya'], 
+            'みゅ': ['myu', 'mixyu', 'milyu'], 
+            'みょ': ['myo', 'mixyo', 'milyo'],
+            'りゃ': ['rya', 'rixya', 'rilya'], 
+            'りゅ': ['ryu', 'rixyu', 'rilyu'], 
+            'りょ': ['ryo', 'rixyo', 'rilyo'],
+            'ぎゃ': ['gya', 'gixya', 'gilya'], 
+            'ぎゅ': ['gyu', 'gixyu', 'gilyu'], 
+            'ぎょ': ['gyo', 'gixyo', 'gilyo'],
+            'じゃ': ['ja', 'jya', 'zya', 'jixya', 'jilya', 'zixya', 'zilya'], 
+            'じゅ': ['ju', 'jyu', 'zyu', 'jixyu', 'jilyu', 'zixyu', 'zilyu'], 
+            'じょ': ['jo', 'jyo', 'zyo', 'jixyo', 'jilyo', 'zixyo', 'zilyo'],
+            'びゃ': ['bya', 'bixya', 'bilya'], 
+            'びゅ': ['byu', 'bixyu', 'bilyu'], 
+            'びょ': ['byo', 'bixyo', 'bilyo'],
+            'ぴゃ': ['pya', 'pixya', 'pilya'], 
+            'ぴゅ': ['pyu', 'pixyu', 'pilyu'], 
+            'ぴょ': ['pyo', 'pixyo', 'pilyo'],
+            'ふぁ': ['fa', 'fwa', 'fuxa', 'fula', 'huxa', 'hula'], 
+            'ふぃ': ['fi', 'fyi', 'fuxi', 'fuli', 'huxi', 'huli'], 
+            'ふぇ': ['fe', 'fye', 'fuxe', 'fule', 'huxe', 'hule'], 
+            'ふぉ': ['fo', 'fwo', 'fuxo', 'fulo', 'huxo', 'hulo'],
+            'ゔ': ['vu'], 'う゛': ['vu'],
+            'ゔぁ': ['va', 'vuxa', 'vula'], 
+            'ゔぃ': ['vi', 'vuxi', 'vuli'], 
+            'ゔぇ': ['ve', 'vuxe', 'vule'], 
+            'ゔぉ': ['vo', 'vuxo', 'vulo'],
+            'てぃ': ['thi', 'tei', 'texi', 'teli'], 
+            'でぃ': ['dhi', 'dei', 'dexi', 'deli'],
+            'とぅ': ['twu', 'toxu', 'tolu'],
+            'どぅ': ['dwu', 'doxu', 'dolu'],
+            'うぃ': ['wi', 'whi', 'uxi', 'uli'], 
+            'うぇ': ['we', 'whe', 'uxe', 'ule'], 
+            'うぉ': ['who', 'uxo', 'ulo'], 
+            'くぁ': ['qa', 'kwa', 'kuxa', 'kula'], 
+            'くぃ': ['qi', 'kwi', 'kuxi', 'kuli'], 
+            'くぇ': ['qe', 'kwe', 'kuxe', 'kule'], 
+            'くぉ': ['qo', 'kwo', 'kuxo', 'kulo'],
+            'つぁ': ['tsa', 'tsuxa', 'tsula'], 
+            'つぃ': ['tsi', 'tsuxi', 'tsuli'], 
+            'つぇ': ['tse', 'tsuxe', 'tsule'], 
+            'つぉ': ['tso', 'tsuxo', 'tsulo'],
+            'しぇ': ['she', 'sye', 'shixe', 'shile', 'sixe', 'sile'],
+            'じぇ': ['je', 'jye', 'jixe', 'jile', 'zixe', 'zile'],
+            'ちぇ': ['che', 'tye', 'chixe', 'chile', 'tixe', 'tile']
+        };
 
 const INITIAL_WORDS = [
   // --- 街・交通・施設 (Town & Transport) ---
@@ -732,1214 +1134,1246 @@ const LEGAL_WORDS = [
   { text: "権利の濫用", kana: "けんりのらんよう" }
 ];
 
-const KEYBOARD_LAYOUT = [
-  ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
-  ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', '-'],
-  ['z', 'x', 'c', 'v', 'b', 'n', 'm']
-];
+        const KEYBOARD_LAYOUT = [
+            ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
+            ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', '-'],
+            ['z', 'x', 'c', 'v', 'b', 'n', 'm']
+        ];
 
-// --- ユーティリティ: ひらがな解析 ---
-const getNodeConsonant = (char, nextChar) => {
-  if (!char) return null;
-  const combo = char + (nextChar || '');
-  if (COMBO_MAP[combo]) return COMBO_MAP[combo][0][0];
-  if (KANA_MAP[char]) return KANA_MAP[char][0][0];
-  return null;
-};
+        // --- Utility Functions ---
+        const getNodeConsonant = (char, nextChar) => {
+            if (!char) return null;
+            const combo = char + (nextChar || '');
+            if (COMBO_MAP[combo]) return COMBO_MAP[combo][0][0];
+            if (KANA_MAP[char]) return KANA_MAP[char][0][0];
+            return null;
+        };
 
-const parseKana = (kana) => {
-  const nodes = [];
-  let i = 0;
-  while (i < kana.length) {
-    let char = kana[i];
-    let nextChar = kana[i + 1];
-    let combo = char + (nextChar || '');
-    let options = [];
-    let isCombo = false;
-    let isSokuon = (char === 'っ');
+        const parseKana = (kana) => {
+            const nodes = [];
+            let i = 0;
+            while (i < kana.length) {
+                let char = kana[i];
+                let nextChar = kana[i + 1];
+                let combo = char + (nextChar || '');
+                let options = [];
+                let isCombo = false;
+                let isSokuon = (char === 'っ');
 
-    if (nextChar && COMBO_MAP[combo]) {
-      options = [...COMBO_MAP[combo]];
-      isCombo = true;
-    } else if (isSokuon) {
-      options = KANA_MAP['っ']; // KANA_MAPから取得するように変更
-    } else {
-      options = KANA_MAP[char] ? [...KANA_MAP[char]] : [char];
-    }
+                if (nextChar && COMBO_MAP[combo]) {
+                    options = [...COMBO_MAP[combo]];
+                    isCombo = true;
+                } else if (isSokuon) {
+                    options = KANA_MAP['っ'];
+                } else {
+                    options = KANA_MAP[char] ? [...KANA_MAP[char]] : [char];
+                }
 
-    let defaultDisplay = options[0];
-    if (isSokuon && !isCombo && i + 1 < kana.length) {
-       const nextCon = getNodeConsonant(kana[i+1], kana[i+2]);
-       if (nextCon) {
-           defaultDisplay = nextCon; 
-       }
-    }
+                let defaultDisplay = options[0];
+                if (isSokuon && !isCombo && i + 1 < kana.length) {
+                    const nextCon = getNodeConsonant(kana[i+1], kana[i+2]);
+                    if (nextCon) {
+                        defaultDisplay = nextCon;
+                    }
+                }
 
-    nodes.push({
-      char: isCombo ? combo : char,
-      options: options, 
-      input: '', 
-      selectedOption: defaultDisplay, 
-      isDone: false,
-      isSokuon: isSokuon,
-      nextConsonant: (!isCombo && !isSokuon && i + 1 < kana.length) ? getNodeConsonant(kana[i+1], kana[i+2]) : null
-    });
+                nodes.push({
+                    char: isCombo ? combo : char,
+                    options: options,
+                    input: '',
+                    selectedOption: defaultDisplay,
+                    isDone: false,
+                    isSokuon: isSokuon,
+                    nextConsonant: (!isCombo && !isSokuon && i + 1 < kana.length) ? getNodeConsonant(kana[i+1], kana[i+2]) : null
+                });
 
-    i += isCombo ? 2 : 1;
-  }
-  return nodes;
-};
+                i += isCombo ? 2 : 1;
+            }
+            return nodes;
+        };
 
-// --- Web Audio API ヘルパー ---
-class SoundEngine {
-  constructor() {
-    this.ctx = null;
-    this.gainNode = null;
-  }
+        // --- SoundEngine Class ---
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.gainNode = null;
+            }
 
-  init() {
-    if (!this.ctx) {
-      this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-      this.gainNode = this.ctx.createGain();
-      this.gainNode.connect(this.ctx.destination);
-      this.gainNode.gain.value = 0.15;
-    }
-    if (this.ctx.state === 'suspended') {
-      this.ctx.resume();
-    }
-  }
-
-  playType() {
-    if (!this.ctx) this.init();
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc.type = 'square';
-    osc.frequency.setValueAtTime(800, this.ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(100, this.ctx.currentTime + 0.05);
-    gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.05);
-    osc.connect(gain);
-    gain.connect(this.gainNode);
-    osc.start();
-    osc.stop(this.ctx.currentTime + 0.05);
-  }
-
-  playMiss() {
-    if (!this.ctx) this.init();
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(150, this.ctx.currentTime);
-    osc.frequency.linearRampToValueAtTime(100, this.ctx.currentTime + 0.2);
-    gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
-    gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
-    osc.connect(gain);
-    gain.connect(this.gainNode);
-    osc.start();
-    osc.stop(this.ctx.currentTime + 0.2);
-  }
-
-  playSuccess() {
-    if (!this.ctx) this.init();
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(1200, this.ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(1800, this.ctx.currentTime + 0.1);
-    gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
-    gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
-    osc.connect(gain);
-    gain.connect(this.gainNode);
-    osc.start();
-    osc.stop(this.ctx.currentTime + 0.15);
-  }
-}
-
-const soundEngine = new SoundEngine();
-
-// --- Switch Component (iPhone Style) ---
-const Switch = ({ checked, onChange, label, activeColorClass = "bg-green-500" }) => (
-    <button
-        onClick={() => onChange(!checked)}
-        className="flex items-center justify-between w-full group focus:outline-none"
-    >
-        <span className="text-slate-200 font-bold">{label}</span>
-        <div className={`relative w-12 h-7 rounded-full transition-colors duration-200 ease-in-out ${checked ? activeColorClass : 'bg-slate-600'}`}>
-            <div className={`absolute top-1 left-1 bg-white w-5 h-5 rounded-full shadow-md transform transition-transform duration-200 ease-in-out ${checked ? 'translate-x-5' : 'translate-x-0'}`} />
-        </div>
-    </button>
-);
-
-export default function AdaptiveTyper() {
-  const [gameState, setGameState] = useState('menu');
-  const [isPaused, setIsPaused] = useState(false); // ポーズ状態
-  const [currentWordData, setCurrentWordData] = useState(null);
-  const [score, setScore] = useState(0);
-  
-  // Settings & Modal State
-  const [settings, setSettings] = useState({
-    duration: 60,
-    sound: true,
-    displayMode: 'ime', // 'ime' | 'guide' | 'input'
-    gameMode: 'normal', // 'normal' | 'legal'
-    weakKeyRate: 0.6, // 0.0 ~ 1.0 (苦手キー優先出題率)
-    ignoreVowels: false, // 追加: 母音を除外するかどうか
-    realMode: false // 追加: リアル入力モード
-  });
-  const [focusKeys, setFocusKeys] = useState(() => {
-    const saved = localStorage.getItem('neoTypeFocusKeys');
-    return saved ? JSON.parse(saved) : [];
-  });
-  
-  const [showSettings, setShowSettings] = useState(false);
-  const [showStats, setShowStats] = useState(false);
-  const [showKeyboardSelector, setShowKeyboardSelector] = useState(false);
-
-  const [timeLeft, setTimeLeft] = useState(settings.duration);
-  const [missStats, setMissStats] = useState(() => {
-    const saved = localStorage.getItem('neoTypeMissStats');
-    return saved ? JSON.parse(saved) : {};
-  });
-  const [combo, setCombo] = useState(0);
-  const [maxCombo, setMaxCombo] = useState(0);
-  const [shake, setShake] = useState(false);
-  const [feedback, setFeedback] = useState(null);
-  const timerRef = useRef(null);
-
-  const playSound = useCallback((type) => {
-    if (!settings.sound) return;
-    try {
-      if (type === 'type') soundEngine.playType();
-      if (type === 'miss') soundEngine.playMiss();
-      if (type === 'success') soundEngine.playSuccess();
-    } catch (e) {
-      console.error("Audio playback error:", e);
-    }
-  }, [settings.sound]);
-
-  // FocusKeysを保存
-  useEffect(() => {
-    localStorage.setItem('neoTypeFocusKeys', JSON.stringify(focusKeys));
-  }, [focusKeys]);
-
-  const startGame = useCallback(() => {
-    if (settings.sound) soundEngine.init();
-
-    setGameState('playing');
-    setIsPaused(false);
-    setScore(0);
-    setCombo(0);
-    setMaxCombo(0);
-    setTimeLeft(settings.duration);
-    setFeedback(null);
-    pickNextWord(missStats, focusKeys, settings.gameMode, settings.ignoreVowels);
-    
-    // タイマー管理は別のuseEffectで行う
-  }, [settings.duration, settings.sound, settings.gameMode, settings.weakKeyRate, settings.ignoreVowels, missStats, focusKeys]);
-
-  // タイマー制御のuseEffect
-  useEffect(() => {
-    if (gameState !== 'playing') {
-      if (timerRef.current) clearInterval(timerRef.current);
-      return;
-    }
-
-    if (isPaused) {
-      if (timerRef.current) clearInterval(timerRef.current);
-      return;
-    }
-
-    timerRef.current = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          endGame();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [gameState, isPaused]);
-
-  const endGame = () => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    setGameState('finished');
-    if (settings.sound) soundEngine.playSuccess();
-    localStorage.setItem('neoTypeMissStats', JSON.stringify(missStats));
-  };
-
-  const resetStats = () => {
-    if (window.confirm("学習データを完全にリセットしますか？\n(Weak Keys Analysis Reset)")) {
-      setMissStats({});
-      localStorage.removeItem('neoTypeMissStats');
-      setShowStats(false);
-    }
-  };
-
-  const toggleFocusKey = (key) => {
-    setFocusKeys(prev => 
-      prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
-    );
-  };
-
-  // --- 出題ロジック ---
-  const pickNextWord = (currentStats, currentFocusKeys, mode, ignoreVowels) => {
-    let autoWeakKeys = Object.entries(currentStats)
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 5)
-      .map(([key]) => key);
-
-    // 設定がONなら自動検出から母音を除外
-    if (ignoreVowels) {
-        const vowels = ['a', 'i', 'u', 'e', 'o', '-'];
-        autoWeakKeys = autoWeakKeys.filter(k => !vowels.includes(k));
-    }
-
-    const manualFocusKeys = currentFocusKeys || [];
-    let targetKeys = Array.from(new Set([...autoWeakKeys, ...manualFocusKeys]));
-
-    // 最終的なターゲットキーからも母音を除外（手動設定も考慮）
-    if (ignoreVowels) {
-        const vowels = ['a', 'i', 'u', 'e', 'o', '-'];
-        targetKeys = targetKeys.filter(k => !vowels.includes(k));
-    }
-
-    // モードに応じてリストを選択
-    const wordList = mode === 'legal' ? LEGAL_WORDS : INITIAL_WORDS;
-
-    let candidates = [];
-    let isWeakMode = false;
-
-    // 苦手キー優先ロジック
-    // settings.weakKeyRate (0.0 - 1.0) の確率で苦手キーを含む単語を優先
-    if (targetKeys.length > 0 && Math.random() < settings.weakKeyRate) {
-      candidates = wordList.filter(word => {
-        const defaultRomaji = parseKana(word.kana).map(n => n.options[0]).join('');
-        return targetKeys.some(k => defaultRomaji.includes(k));
-      });
-      if (candidates.length > 0) {
-          isWeakMode = true;
-      }
-    }
-
-    // 候補がない場合、または確率でランダム出題
-    if (candidates.length === 0) {
-      candidates = wordList;
-      isWeakMode = false;
-    }
-
-    const nextWord = candidates[Math.floor(Math.random() * candidates.length)];
-    setCurrentWordData({
-      text: nextWord.text,
-      kana: nextWord.kana,
-      nodes: parseKana(nextWord.kana),
-      isWeakMode: isWeakMode // フラグを保持
-    });
-  };
-
-  // --- キーイベント制御 ---
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (showSettings || showStats || showKeyboardSelector) return;
-
-      if (isPaused) return;
-
-      if (e.code === 'Space') {
-        if (gameState === 'menu' || gameState === 'finished') {
-          e.preventDefault();
-          startGame();
-          return;
-        }
-        if (gameState === 'playing') {
-            e.preventDefault();
-            return; 
-        }
-      }
-
-      if (gameState !== 'playing' || !currentWordData) return;
-      if (['Shift', 'Control', 'Alt', 'Meta', 'CapsLock', 'Tab', 'Escape'].includes(e.key)) return;
-
-      // Handle Backspace for Real Mode
-      if (e.key === 'Backspace' && settings.realMode) {
-          const nodes = [...currentWordData.nodes];
-          const activeNodeIndex = nodes.findIndex(n => !n.isDone);
-          
-          if (activeNodeIndex !== -1) {
-              const node = nodes[activeNodeIndex];
-              if (node.input.length > 0) {
-                  node.input = node.input.slice(0, -1);
-                  
-                  // Re-evaluate selected option based on remaining input
-                  // Only update if input matches a prefix of an option
-                  const validOption = node.options.find(opt => opt.startsWith(node.input));
-                  if (validOption) {
-                      node.selectedOption = validOption;
-                  }
-                  // If no valid option (still have typo prefix), keep selectedOption as is
-                  
-                  setCurrentWordData({ ...currentWordData, nodes });
-              }
-          }
-          return;
-      }
-
-      const inputChar = e.key.toLowerCase();
-      const nodes = [...currentWordData.nodes];
-      const activeNodeIndex = nodes.findIndex(n => !n.isDone);
-      
-      if (activeNodeIndex === -1) return;
-
-      const node = nodes[activeNodeIndex];
-      const nextNode = nodes[activeNodeIndex + 1];
-
-      let isCorrect = false;
-      const currentInput = node.input + inputChar;
-
-      // --- 1. 共通: 特殊判定 (促音・ん) ---
-      // これらはモードに関わらず正解なら即座に適用する
-
-      // 1-A. 促音特例 ('っ' + 次の子音)
-      if (!isCorrect && node.isSokuon && nextNode) {
-        const nextConsonants = nextNode.options.map(opt => opt[0]);
-        if (nextConsonants.includes(inputChar)) {
-            node.selectedOption = inputChar; // 表示用に打ったキーを採用
-            node.input = inputChar;
-            node.isDone = true;
-            isCorrect = true;
-        }
-      }
-
-      // 1-B. 「ん」特例 ('n' + 次の入力がナ行以外等の場合)
-      if (!isCorrect && node.char === 'ん' && node.input === 'n') {
-         if (nextNode) {
-            const nextNodeValidStart = nextNode.options.some(opt => opt.startsWith(inputChar));
-            // 次の文字の入力として成立する場合（つまり 'nn' じゃなくて 'n'+次の文字 で進める場合）
-            if (nextNodeValidStart) {
-                // 現在の 'ん' を完了にする
-                node.isDone = true;
-                node.selectedOption = 'n';
-                
-                // 次のノードの入力として処理する
-                const nextNodeInput = inputChar;
-                const nextNodeValidOption = nextNode.options.find(opt => opt.startsWith(nextNodeInput));
-                
-                if (nextNodeValidOption) {
-                    // 次のノードも正解の入力だった場合
-                    nextNode.input = nextNodeInput;
-                    nextNode.selectedOption = nextNodeValidOption;
-                    if (nextNode.input === nextNodeValidOption) nextNode.isDone = true;
-                    isCorrect = true;
-                } else if (settings.realMode) {
-                    // RealModeの場合、次のノードへの入力が間違っていても受け入れる
-                    // ただし、'isCorrect' は false のままにしてミスカウントさせるか、
-                    // ここでは「ん」の成功だけを優先するか。
-                    // 複雑さを避けるため、ここでは「ん」のショートカット成功のみを扱い、
-                    // 次の文字の入力は次回のループ（ここでの処理外）にはできないため、
-                    // RealMode特有の「誤入力反映」を行う。
-                    nextNode.input = nextNodeInput;
-                    // 正解ではないので isCorrect は false
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    this.gainNode = this.ctx.createGain();
+                    this.gainNode.connect(this.ctx.destination);
+                    this.gainNode.gain.value = 0.15;
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
                 }
             }
-         }
-      }
 
-      // --- 2. モード別判定 (通常入力) ---
-      if (!isCorrect) {
-          if (settings.realMode) {
-              // Real Mode Logic
-              // 常に文字を受け入れる
-              node.input = currentInput;
-              
-              const isPrefixOfAnyOption = node.options.some(opt => opt.startsWith(currentInput));
-              if (isPrefixOfAnyOption) {
-                  isCorrect = true;
-                  // 最適なオプションを選択
-                  const bestMatch = node.options.find(opt => opt.startsWith(currentInput));
-                  if (bestMatch) node.selectedOption = bestMatch;
-                  
-                  if (node.input === node.selectedOption) {
-                      node.isDone = true;
-                  }
-              } else {
-                  // Typo
-                  isCorrect = false;
-              }
-          } else {
-              // Normal Mode Logic
-              const validOption = node.options.find(opt => opt.startsWith(currentInput));
-              if (validOption) {
-                  isCorrect = true;
-                  node.input = currentInput;
-                  node.selectedOption = validOption; 
-                  if (node.input === validOption) {
-                      node.isDone = true;
-                  }
-              }
-          }
-      }
+            playType() {
+                if (!this.ctx) this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(800, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(100, this.ctx.currentTime + 0.05);
+                gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.05);
+                osc.connect(gain);
+                gain.connect(this.gainNode);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.05);
+            }
 
-      if (isCorrect) {
-        playSound('type');
-        setCombo(c => c + 1);
-        setCurrentWordData({ ...currentWordData, nodes });
+            playMiss() {
+                if (!this.ctx) this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, this.ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(100, this.ctx.currentTime + 0.2);
+                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+                osc.connect(gain);
+                gain.connect(this.gainNode);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.2);
+            }
 
-        if (nodes.every(n => n.isDone)) {
-          const addedScore = 100 + (combo * 10);
-          setScore(s => s + addedScore);
-          setFeedback({ id: Date.now(), text: 'Perfect!', color: 'text-green-400' });
-          playSound('success');
-          pickNextWord(missStats, focusKeys, settings.gameMode, settings.ignoreVowels);
-        }
-      } else {
-        playSound('miss');
-        setCombo(0);
-        setShake(true);
-        setTimeout(() => setShake(false), 300);
-        setFeedback({ id: Date.now(), text: 'Miss!', color: 'text-red-500' });
-        
-        // In real mode, we also update state to show the wrong char
-        if (settings.realMode) {
-             setCurrentWordData({ ...currentWordData, nodes });
+            playSuccess() {
+                if (!this.ctx) this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(1200, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(1800, this.ctx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+                osc.connect(gain);
+                gain.connect(this.gainNode);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.15);
+            }
         }
 
-        const targetChar = node.selectedOption[node.input.length] || node.selectedOption[0]; // fallback
-        if (targetChar) {
-            setMissStats(prev => ({
-                ...prev,
-                [targetChar]: (prev[targetChar] || 0) + 1
-            }));
-        }
-      }
-    };
+        const soundEngine = new SoundEngine();
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [gameState, isPaused, currentWordData, combo, missStats, focusKeys, showSettings, showStats, showKeyboardSelector, settings.gameMode, settings.weakKeyRate, settings.ignoreVowels, settings.realMode, startGame, playSound]);
+        // --- GameApp Class ---
+        class GameApp {
+            constructor() {
+                this.gameState = 'menu';
+                this.isPaused = false;
+                this.currentWordData = null;
+                this.score = 0;
+                this.combo = 0;
+                this.maxCombo = 0;
+                this.timeLeft = 60;
+                this.shake = false;
+                this.feedback = null;
+                this.timerInterval = null;
+                
+                this.settings = {
+                    duration: 60,
+                    sound: true,
+                    displayMode: 'ime',
+                    gameMode: 'normal',
+                    weakKeyRate: 0.6,
+                    ignoreVowels: false,
+                    realMode: false
+                };
+                
+                this.missStats = this.loadMissStats();
+                this.focusKeys = this.loadFocusKeys();
+                
+                this.showSettings = false;
+                this.showStats = false;
+                this.showKeyboardSelector = false;
+                
+                this.setupEventListeners();
+                this.render();
+            }
 
-  useEffect(() => {
-    if (combo > maxCombo) setMaxCombo(combo);
-  }, [combo, maxCombo]);
+            loadMissStats() {
+                const saved = localStorage.getItem('neoTypeMissStats');
+                return saved ? JSON.parse(saved) : {};
+            }
 
-  // --- Components: Pause Overlay ---
-  const PauseOverlay = () => (
-    <div className="absolute inset-0 bg-slate-900/80 z-40 flex flex-col items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
-       <h2 className="text-4xl font-black text-white mb-8 tracking-widest">PAUSED</h2>
-       <div className="flex flex-col gap-4 w-full max-w-xs">
-         <button 
-           onClick={() => setIsPaused(false)}
-           className="flex items-center justify-center gap-3 px-8 py-4 bg-cyan-600 hover:bg-cyan-500 rounded-xl font-bold text-xl text-white transition-all shadow-lg"
-         >
-           <Play className="w-6 h-6 fill-current"/> Resume
-         </button>
-         <button 
-           onClick={() => setGameState('menu')}
-           className="flex items-center justify-center gap-3 px-8 py-4 bg-slate-700 hover:bg-slate-600 rounded-xl font-bold text-xl text-slate-300 transition-all border border-slate-600"
-         >
-           <LogOut className="w-6 h-6"/> Quit
-         </button>
-       </div>
-    </div>
-  );
+            saveMissStats() {
+                localStorage.setItem('neoTypeMissStats', JSON.stringify(this.missStats));
+            }
 
-  // --- Components: Keyboard Selector Modal ---
-  const KeyboardSelector = () => (
-    <div className="absolute inset-0 bg-slate-900/95 z-[60] flex items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="bg-slate-800 p-8 rounded-2xl border border-slate-700 w-full max-w-3xl shadow-2xl relative flex flex-col items-center">
-        <button onClick={() => setShowKeyboardSelector(false)} className="absolute top-4 right-4 text-slate-500 hover:text-white">
-            <X className="w-6 h-6"/>
-        </button>
-        
-        <h3 className="text-xl font-bold text-slate-200 mb-2 flex items-center gap-2">
-            <Target className="w-5 h-5 text-cyan-400"/>
-            苦手キーを指定
-        </h3>
-        <p className="text-slate-400 text-sm mb-8">
-            クリックして重点的に練習したいキーを選択してください（青色が選択中）
-        </p>
+            loadFocusKeys() {
+                const saved = localStorage.getItem('neoTypeFocusKeys');
+                return saved ? JSON.parse(saved) : [];
+            }
 
-        <div className="flex flex-col gap-2 mb-8 select-none">
-            {KEYBOARD_LAYOUT.map((row, rowIndex) => (
-                <div key={rowIndex} className="flex justify-center gap-2">
-                    {row.map(key => {
-                        const isSelected = focusKeys.includes(key);
-                        return (
-                            <button
-                                key={key}
-                                onClick={() => toggleFocusKey(key)}
-                                className={`w-12 h-12 rounded-lg font-mono font-bold text-lg uppercase transition-all duration-150 transform active:scale-95
-                                    ${isSelected 
-                                        ? 'bg-cyan-600 text-white shadow-[0_0_15px_rgba(8,145,178,0.5)] border-cyan-400' 
-                                        : 'bg-slate-700 text-slate-400 hover:bg-slate-600 border-slate-600'
-                                    } border`}
-                            >
-                                {key}
-                            </button>
-                        );
-                    })}
-                </div>
-            ))}
-        </div>
+            saveFocusKeys() {
+                localStorage.setItem('neoTypeFocusKeys', JSON.stringify(this.focusKeys));
+            }
 
-        <div className="flex gap-4">
-             <button 
-                onClick={() => setFocusKeys([])}
-                className="px-6 py-3 rounded-xl font-bold text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
-            >
-                Clear All
-            </button>
-            <button 
-                onClick={() => setShowKeyboardSelector(false)}
-                className="px-8 py-3 bg-cyan-600 hover:bg-cyan-500 rounded-xl font-bold text-white transition-colors shadow-lg"
-            >
-                Done
-            </button>
-        </div>
-      </div>
-    </div>
-  );
+            setupEventListeners() {
+                this.keyDownHandler = (e) => this.handleKeyDown(e);
+                document.addEventListener('keydown', this.keyDownHandler);
+            }
 
-  // --- Components: Settings Modal ---
-  const SettingsPanel = () => (
-    <div className="absolute inset-0 bg-slate-900/90 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-slate-800 p-8 rounded-2xl border border-slate-700 w-full max-w-xl shadow-2xl space-y-6 relative max-h-[85vh] overflow-y-auto">
-        <button onClick={() => setShowSettings(false)} className="absolute top-4 right-4 text-slate-500 hover:text-white sticky top-0">
-            <X className="w-6 h-6"/>
-        </button>
-        <h2 className="text-2xl font-bold flex items-center gap-2 border-b border-slate-700 pb-4">
-          <Settings className="w-6 h-6 text-cyan-400" /> Settings
-        </h2>
-        
-        {/* 1. Time Settings */}
-        <div className="space-y-2">
-          <label className="text-slate-400 text-sm font-bold uppercase tracking-wider flex items-center gap-2">
-            <Clock className="w-4 h-4" /> Game Duration
-          </label>
-          <div className="grid grid-cols-3 gap-2">
-            {[30, 60, 90, 120, 180, 300].map(time => (
-              <button
-                key={time}
-                onClick={() => setSettings(s => ({ ...s, duration: time }))}
-                className={`py-2 rounded-lg font-bold transition-all ${
-                  settings.duration === time 
-                  ? 'bg-cyan-600 text-white shadow-[0_0_15px_rgba(8,145,178,0.5)]' 
-                  : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
-                }`}
-              >
-                {time}s
-              </button>
-            ))}
-          </div>
-        </div>
+            destroy() {
+                if (this.keyDownHandler) {
+                    document.removeEventListener('keydown', this.keyDownHandler);
+                }
+                if (this.timerInterval) {
+                    clearInterval(this.timerInterval);
+                }
+            }
 
-        {/* 2. Focus Keys Settings */}
-        <div className="space-y-2">
-          <label className="text-slate-400 text-sm font-bold uppercase tracking-wider flex items-center gap-2">
-            <Target className="w-4 h-4" /> 苦手キーを指定
-          </label>
-          <div className="bg-slate-700/50 p-4 rounded-xl border border-slate-600 flex flex-col gap-3">
-             <div className="text-xs text-slate-400">
-                {focusKeys.length > 0 
-                  ? <span className="text-cyan-400 font-mono font-bold break-all">{focusKeys.join(', ').toUpperCase()}</span>
-                  : "No keys selected (Auto only)"}
-             </div>
-             <button
-                onClick={() => setShowKeyboardSelector(true)}
-                className="w-full py-2 bg-slate-600 hover:bg-slate-500 rounded-lg text-sm font-bold text-white transition-colors flex items-center justify-center gap-2"
-             >
-                <Keyboard className="w-4 h-4"/> Select Keys on Keyboard
-             </button>
-             
-             {/* New Switch for Ignore Vowels */}
-             <div className="flex items-center justify-between py-2 border-t border-slate-600/50 mt-2">
-                <span className="text-xs font-bold text-slate-300">母音(AIUEO)を分析から除外</span>
-                <div className="scale-75 origin-right">
-                    <Switch 
-                        checked={settings.ignoreVowels} 
-                        onChange={(checked) => setSettings(s => ({ ...s, ignoreVowels: checked }))}
-                        label=""
-                        activeColorClass="bg-cyan-600"
-                    />
-                </div>
-             </div>
+            handleKeyDown(e) {
+                if (this.showSettings || this.showStats || this.showKeyboardSelector) return;
+                if (this.isPaused) return;
 
-             {/* Weak Key Rate Slider */}
-             <div className="pt-2 border-t border-slate-600/50">
-                <div className="flex justify-between items-center mb-1">
-                    <span className="text-xs font-bold text-slate-300">苦手キー出現率</span>
-                    <span className="text-xs font-mono text-cyan-400">{Math.round(settings.weakKeyRate * 100)}%</span>
-                </div>
-                <input 
-                    type="range" 
-                    min="0" 
-                    max="1" 
-                    step="0.1" 
-                    value={settings.weakKeyRate} 
-                    onChange={(e) => setSettings(s => ({ ...s, weakKeyRate: parseFloat(e.target.value) }))}
-                    className="w-full h-2 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-cyan-500"
-                />
-             </div>
-          </div>
-        </div>
+                if (e.code === 'Space') {
+                    if (this.gameState === 'menu' || this.gameState === 'finished') {
+                        e.preventDefault();
+                        this.startGame();
+                        return;
+                    }
+                    if (this.gameState === 'playing') {
+                        e.preventDefault();
+                        return;
+                    }
+                }
 
-        {/* 3. Sound Settings */}
-        <div className="space-y-2">
-          <label className="text-slate-400 text-sm font-bold uppercase tracking-wider flex items-center gap-2">
-            {settings.sound ? <Volume2 className="w-4 h-4"/> : <VolumeX className="w-4 h-4"/>} 
-            Sound Effects
-          </label>
-          <div className="flex gap-2 bg-slate-700 p-1 rounded-lg">
-            <button
-              onClick={() => setSettings(s => ({ ...s, sound: true }))}
-              className={`flex-1 py-2 rounded-md font-bold text-sm transition-all ${
-                settings.sound ? 'bg-cyan-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              ON
-            </button>
-            <button
-              onClick={() => setSettings(s => ({ ...s, sound: false }))}
-              className={`flex-1 py-2 rounded-md font-bold text-sm transition-all ${
-                !settings.sound ? 'bg-red-500/80 text-white shadow-sm' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              OFF
-            </button>
-          </div>
-        </div>
+                if (this.gameState !== 'playing' || !this.currentWordData) return;
+                if (['Shift', 'Control', 'Alt', 'Meta', 'CapsLock', 'Tab', 'Escape'].includes(e.key)) return;
 
-        {/* 4. Display Mode Settings */}
-        <div className="space-y-2">
-          <label className="text-slate-400 text-sm font-bold uppercase tracking-wider flex items-center gap-2">
-            <Eye className="w-4 h-4"/> 
-            Display Mode
-          </label>
-          <div className="flex gap-2 bg-slate-700 p-1 rounded-lg">
-            <button
-              onClick={() => setSettings(s => ({ ...s, displayMode: 'ime' }))}
-              className={`flex-1 py-2 rounded-md font-bold text-sm transition-all flex flex-col items-center justify-center ${
-                settings.displayMode === 'ime' ? 'bg-cyan-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <div className="flex items-center gap-1"><Languages className="w-3 h-3"/> IME</div>
-              <span className="text-[10px] font-normal opacity-80">ひらがな変換</span>
-            </button>
-            <button
-              onClick={() => setSettings(s => ({ ...s, displayMode: 'input' }))}
-              className={`flex-1 py-2 rounded-md font-bold text-sm transition-all flex flex-col items-center justify-center ${
-                settings.displayMode === 'input' ? 'bg-cyan-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <div className="flex items-center gap-1"><EyeOff className="w-3 h-3"/> Input</div>
-              <span className="text-[10px] font-normal opacity-80">打つと表示</span>
-            </button>
-            <button
-              onClick={() => setSettings(s => ({ ...s, displayMode: 'guide' }))}
-              className={`flex-1 py-2 rounded-md font-bold text-sm transition-all flex flex-col items-center justify-center ${
-                settings.displayMode === 'guide' ? 'bg-cyan-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <div className="flex items-center gap-1"><Eye className="w-3 h-3"/> Guide</div>
-              <span className="text-[10px] font-normal opacity-80">最初から表示</span>
-            </button>
-          </div>
-        </div>
+                if (e.key === 'Backspace' && this.settings.realMode) {
+                    const nodes = [...this.currentWordData.nodes];
+                    const activeNodeIndex = nodes.findIndex(n => !n.isDone);
+                    
+                    if (activeNodeIndex !== -1) {
+                        const node = nodes[activeNodeIndex];
+                        if (node.input.length > 0) {
+                            node.input = node.input.slice(0, -1);
+                            const validOption = node.options.find(opt => opt.startsWith(node.input));
+                            if (validOption) {
+                                node.selectedOption = validOption;
+                            }
+                            this.currentWordData.nodes = nodes;
+                            this.render();
+                        }
+                    }
+                    return;
+                }
 
-        {/* 5. Game Mode Settings (iPhone Style Switch) - Moved to bottom with top border */}
-        <div className="flex flex-col gap-4 py-4 border-t border-slate-700/50 mt-4">
-             {/* Legal Mode Switch */}
-             <div className="flex items-center justify-between">
-                 <div className="flex items-center gap-3">
-                     <div className={`p-2 rounded-lg ${settings.gameMode === 'legal' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-slate-700 text-slate-400'}`}>
-                         {settings.gameMode === 'legal' ? <Scale className="w-5 h-5"/> : <Keyboard className="w-5 h-5"/>}
-                     </div>
-                     <div className="flex flex-col">
-                         <span className="font-bold text-slate-200">Legal Terms Mode</span>
-                         <span className="text-xs text-slate-500">法律用語（200語）で練習する</span>
-                     </div>
-                 </div>
-                 <div>
-                     <Switch 
-                        checked={settings.gameMode === 'legal'} 
-                        onChange={(checked) => setSettings(s => ({ ...s, gameMode: checked ? 'legal' : 'normal' }))}
-                        label=""
-                        activeColorClass="bg-indigo-600"
-                     />
-                 </div>
-             </div>
+                const inputChar = e.key.toLowerCase();
+                const nodes = [...this.currentWordData.nodes];
+                const activeNodeIndex = nodes.findIndex(n => !n.isDone);
+                
+                if (activeNodeIndex === -1) return;
 
-             {/* Real Mode Switch */}
-             <div className="flex items-center justify-between">
-                 <div className="flex items-center gap-3">
-                     <div className={`p-2 rounded-lg ${settings.realMode ? 'bg-red-500/20 text-red-400' : 'bg-slate-700 text-slate-400'}`}>
-                         <Delete className="w-5 h-5"/>
-                     </div>
-                     <div className="flex flex-col">
-                         <span className="font-bold text-slate-200">Real Typing Mode</span>
-                         <span className="text-xs text-slate-500">ミスをBackspaceで消す実戦形式</span>
-                     </div>
-                 </div>
-                 <div>
-                     <Switch 
-                        checked={settings.realMode} 
-                        onChange={(checked) => setSettings(s => ({ ...s, realMode: checked }))}
-                        label=""
-                        activeColorClass="bg-red-600"
-                     />
-                 </div>
-             </div>
-        </div>
+                const node = nodes[activeNodeIndex];
+                const nextNode = nodes[activeNodeIndex + 1];
 
-        <button 
-          onClick={() => setShowSettings(false)}
-          className="w-full py-4 bg-slate-700 hover:bg-slate-600 rounded-xl font-bold text-white transition-colors"
-        >
-          Close & Save
-        </button>
-      </div>
-    </div>
-  );
+                let isCorrect = false;
+                const currentInput = node.input + inputChar;
 
-  // --- Components: Stats Viewer Modal ---
-  const StatsPanel = () => {
-    const sortedStats = Object.entries(missStats).sort(([, a], [, b]) => b - a);
-    
-    return (
-      <div className="absolute inset-0 bg-slate-900/95 z-50 flex items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-200">
-        <div className="bg-slate-800 rounded-2xl border border-slate-700 w-full max-w-2xl h-[80vh] flex flex-col shadow-2xl">
-          {/* Header */}
-          <div className="p-6 border-b border-slate-700 flex justify-between items-center">
-             <h2 className="text-2xl font-bold flex items-center gap-3">
-                <BarChart2 className="w-6 h-6 text-yellow-400" /> 
-                Learning Data
-                <span className="text-sm font-normal text-slate-400 ml-2">累積ミス回数ランキング</span>
-             </h2>
-             <button onClick={() => setShowStats(false)} className="p-2 hover:bg-slate-700 rounded-full transition-colors">
-                <X className="w-6 h-6 text-slate-400"/>
-             </button>
-          </div>
+                // Special case: 促音 ('っ' + next consonant)
+                if (!isCorrect && node.isSokuon && nextNode) {
+                    const nextConsonants = nextNode.options.map(opt => opt[0]);
+                    if (nextConsonants.includes(inputChar)) {
+                        node.selectedOption = inputChar;
+                        node.input = inputChar;
+                        node.isDone = true;
+                        isCorrect = true;
+                    }
+                }
 
-          {/* Body */}
-          <div className="flex-1 overflow-y-auto p-6">
-            {sortedStats.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-slate-500 space-y-4">
-                    <Trophy className="w-16 h-16 text-slate-700" />
-                    <p>データがありません。ゲームをプレイしてデータを集めましょう。</p>
-                </div>
-            ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {sortedStats.map(([key, count], index) => (
-                        <div key={key} className="flex items-center justify-between bg-slate-700/50 p-4 rounded-xl border border-slate-700/50">
-                            <div className="flex items-center gap-4">
-                                <span className={`flex items-center justify-center w-8 h-8 rounded font-bold text-sm
-                                    ${index === 0 ? 'bg-yellow-500 text-black' : 
-                                      index === 1 ? 'bg-gray-400 text-black' : 
-                                      index === 2 ? 'bg-orange-600 text-white' : 'bg-slate-600 text-slate-300'}`}>
-                                    {index + 1}
-                                </span>
-                                <span className="text-3xl font-mono font-bold text-white uppercase">{key}</span>
+                // Special case: 'ん' with 'n' + next input
+                if (!isCorrect && node.char === 'ん' && node.input === 'n') {
+                    if (nextNode) {
+                        const nextNodeValidStart = nextNode.options.some(opt => opt.startsWith(inputChar));
+                        if (nextNodeValidStart) {
+                            node.isDone = true;
+                            node.selectedOption = 'n';
+                            
+                            const nextNodeInput = inputChar;
+                            const nextNodeValidOption = nextNode.options.find(opt => opt.startsWith(nextNodeInput));
+                            
+                            if (nextNodeValidOption) {
+                                nextNode.input = nextNodeInput;
+                                nextNode.selectedOption = nextNodeValidOption;
+                                if (nextNode.input === nextNodeValidOption) nextNode.isDone = true;
+                                isCorrect = true;
+                            } else if (this.settings.realMode) {
+                                nextNode.input = nextNodeInput;
+                            }
+                        }
+                    }
+                }
+
+                // Normal input logic
+                if (!isCorrect) {
+                    if (this.settings.realMode) {
+                        node.input = currentInput;
+                        
+                        const isPrefixOfAnyOption = node.options.some(opt => opt.startsWith(currentInput));
+                        if (isPrefixOfAnyOption) {
+                            isCorrect = true;
+                            const bestMatch = node.options.find(opt => opt.startsWith(currentInput));
+                            if (bestMatch) node.selectedOption = bestMatch;
+                            
+                            if (node.input === node.selectedOption) {
+                                node.isDone = true;
+                            }
+                        } else {
+                            isCorrect = false;
+                        }
+                    } else {
+                        const validOption = node.options.find(opt => opt.startsWith(currentInput));
+                        if (validOption) {
+                            isCorrect = true;
+                            node.input = currentInput;
+                            node.selectedOption = validOption;
+                            if (node.input === validOption) {
+                                node.isDone = true;
+                            }
+                        }
+                    }
+                }
+
+                if (isCorrect) {
+                    this.playSound('type');
+                    this.combo++;
+                    if (this.combo > this.maxCombo) this.maxCombo = this.combo;
+                    this.currentWordData.nodes = nodes;
+
+                    if (nodes.every(n => n.isDone)) {
+                        const addedScore = 100 + (this.combo * 10);
+                        this.score += addedScore;
+                        this.setFeedback('Perfect!', 'text-green-400');
+                        this.playSound('success');
+                        this.pickNextWord();
+                    }
+                } else {
+                    this.playSound('miss');
+                    this.combo = 0;
+                    this.shake = true;
+                    setTimeout(() => {
+                        this.shake = false;
+                        this.render();
+                    }, 300);
+                    this.setFeedback('Miss!', 'text-red-500');
+                    
+                    if (this.settings.realMode) {
+                        this.currentWordData.nodes = nodes;
+                    }
+
+                    const targetChar = node.selectedOption[node.input.length] || node.selectedOption[0];
+                    if (targetChar) {
+                        this.missStats[targetChar] = (this.missStats[targetChar] || 0) + 1;
+                    }
+                }
+
+                this.render();
+            }
+
+            playSound(type) {
+                if (!this.settings.sound) return;
+                try {
+                    if (type === 'type') soundEngine.playType();
+                    if (type === 'miss') soundEngine.playMiss();
+                    if (type === 'success') soundEngine.playSuccess();
+                } catch (e) {
+                    console.error("Audio playback error:", e);
+                }
+            }
+
+            setFeedback(text, color) {
+                this.feedback = { id: Date.now(), text, color };
+                setTimeout(() => {
+                    this.feedback = null;
+                    this.render();
+                }, 600);
+            }
+
+            startGame() {
+                if (this.settings.sound) soundEngine.init();
+
+                this.gameState = 'playing';
+                this.isPaused = false;
+                this.score = 0;
+                this.combo = 0;
+                this.maxCombo = 0;
+                this.timeLeft = this.settings.duration;
+                this.feedback = null;
+                this.pickNextWord();
+                this.startTimer();
+                this.render();
+            }
+
+            startTimer() {
+                if (this.timerInterval) clearInterval(this.timerInterval);
+                
+                this.timerInterval = setInterval(() => {
+                    if (this.gameState !== 'playing' || this.isPaused) return;
+                    
+                    this.timeLeft--;
+                    if (this.timeLeft <= 0) {
+                        this.endGame();
+                    }
+                    this.render();
+                }, 1000);
+            }
+
+            endGame() {
+                if (this.timerInterval) clearInterval(this.timerInterval);
+                this.gameState = 'finished';
+                if (this.settings.sound) soundEngine.playSuccess();
+                this.saveMissStats();
+                this.render();
+            }
+
+            pickNextWord() {
+                let autoWeakKeys = Object.entries(this.missStats)
+                    .sort(([, a], [, b]) => b - a)
+                    .slice(0, 5)
+                    .map(([key]) => key);
+
+                if (this.settings.ignoreVowels) {
+                    const vowels = ['a', 'i', 'u', 'e', 'o', '-'];
+                    autoWeakKeys = autoWeakKeys.filter(k => !vowels.includes(k));
+                }
+
+                const manualFocusKeys = this.focusKeys || [];
+                let targetKeys = Array.from(new Set([...autoWeakKeys, ...manualFocusKeys]));
+
+                if (this.settings.ignoreVowels) {
+                    const vowels = ['a', 'i', 'u', 'e', 'o', '-'];
+                    targetKeys = targetKeys.filter(k => !vowels.includes(k));
+                }
+
+                const wordList = this.settings.gameMode === 'legal' ? LEGAL_WORDS : INITIAL_WORDS;
+
+                let candidates = [];
+                let isWeakMode = false;
+
+                if (targetKeys.length > 0 && Math.random() < this.settings.weakKeyRate) {
+                    candidates = wordList.filter(word => {
+                        const defaultRomaji = parseKana(word.kana).map(n => n.options[0]).join('');
+                        return targetKeys.some(k => defaultRomaji.includes(k));
+                    });
+                    if (candidates.length > 0) {
+                        isWeakMode = true;
+                    }
+                }
+
+                if (candidates.length === 0) {
+                    candidates = wordList;
+                    isWeakMode = false;
+                }
+
+                const nextWord = candidates[Math.floor(Math.random() * candidates.length)];
+                this.currentWordData = {
+                    text: nextWord.text,
+                    kana: nextWord.kana,
+                    nodes: parseKana(nextWord.kana),
+                    isWeakMode: isWeakMode
+                };
+            }
+
+            togglePause() {
+                this.isPaused = !this.isPaused;
+                this.render();
+            }
+
+            resetStats() {
+                if (confirm("学習データを完全にリセットしますか？\n(Weak Keys Analysis Reset)")) {
+                    this.missStats = {};
+                    localStorage.removeItem('neoTypeMissStats');
+                    this.showStats = false;
+                    this.render();
+                }
+            }
+
+            toggleFocusKey(key) {
+                const index = this.focusKeys.indexOf(key);
+                if (index > -1) {
+                    this.focusKeys.splice(index, 1);
+                } else {
+                    this.focusKeys.push(key);
+                }
+                this.saveFocusKeys();
+                this.render();
+            }
+
+            escapeHtml(text) {
+                if (!this._escapeDiv) {
+                    this._escapeDiv = document.createElement('div');
+                }
+                this._escapeDiv.textContent = text;
+                return this._escapeDiv.innerHTML;
+            }
+
+            // --- Render Methods ---
+            render() {
+                const app = document.getElementById('app');
+                
+                if (this.gameState === 'menu') {
+                    app.innerHTML = this.renderMenu();
+                } else if (this.gameState === 'finished') {
+                    app.innerHTML = this.renderResults();
+                } else if (this.gameState === 'playing') {
+                    app.innerHTML = this.renderPlaying();
+                }
+                
+                this.attachEventHandlers();
+            }
+
+            attachEventHandlers() {
+                // Menu buttons
+                const startBtn = document.getElementById('startBtn');
+                if (startBtn) startBtn.onclick = () => this.startGame();
+                
+                const settingsBtn = document.getElementById('settingsBtn');
+                if (settingsBtn) settingsBtn.onclick = () => {
+                    this.showSettings = true;
+                    this.render();
+                };
+                
+                const statsBtn = document.getElementById('statsBtn');
+                if (statsBtn) statsBtn.onclick = () => {
+                    this.showStats = true;
+                    this.render();
+                };
+                
+                // Settings modal
+                const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+                if (closeSettingsBtn) closeSettingsBtn.onclick = () => {
+                    this.showSettings = false;
+                    this.render();
+                };
+                
+                const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+                if (saveSettingsBtn) saveSettingsBtn.onclick = () => {
+                    this.showSettings = false;
+                    this.render();
+                };
+                
+                // Duration buttons
+                [30, 60, 90, 120, 180, 300].forEach(time => {
+                    const btn = document.getElementById(`duration${time}`);
+                    if (btn) btn.onclick = () => {
+                        this.settings.duration = time;
+                        this.render();
+                    };
+                });
+                
+                // Sound toggle
+                const soundOnBtn = document.getElementById('soundOn');
+                if (soundOnBtn) soundOnBtn.onclick = () => {
+                    this.settings.sound = true;
+                    this.render();
+                };
+                
+                const soundOffBtn = document.getElementById('soundOff');
+                if (soundOffBtn) soundOffBtn.onclick = () => {
+                    this.settings.sound = false;
+                    this.render();
+                };
+                
+                // Display mode buttons
+                const imeBtn = document.getElementById('displayIme');
+                if (imeBtn) imeBtn.onclick = () => {
+                    this.settings.displayMode = 'ime';
+                    this.render();
+                };
+                
+                const inputBtn = document.getElementById('displayInput');
+                if (inputBtn) inputBtn.onclick = () => {
+                    this.settings.displayMode = 'input';
+                    this.render();
+                };
+                
+                const guideBtn = document.getElementById('displayGuide');
+                if (guideBtn) guideBtn.onclick = () => {
+                    this.settings.displayMode = 'guide';
+                    this.render();
+                };
+                
+                // Toggle switches
+                const legalModeSwitch = document.getElementById('legalModeSwitch');
+                if (legalModeSwitch) legalModeSwitch.onclick = () => {
+                    this.settings.gameMode = this.settings.gameMode === 'legal' ? 'normal' : 'legal';
+                    this.render();
+                };
+                
+                const realModeSwitch = document.getElementById('realModeSwitch');
+                if (realModeSwitch) realModeSwitch.onclick = () => {
+                    this.settings.realMode = !this.settings.realMode;
+                    this.render();
+                };
+                
+                const ignoreVowelsSwitch = document.getElementById('ignoreVowelsSwitch');
+                if (ignoreVowelsSwitch) ignoreVowelsSwitch.onclick = () => {
+                    this.settings.ignoreVowels = !this.settings.ignoreVowels;
+                    this.render();
+                };
+                
+                // Weak key rate slider
+                const weakKeyRateSlider = document.getElementById('weakKeyRateSlider');
+                if (weakKeyRateSlider) weakKeyRateSlider.oninput = (e) => {
+                    this.settings.weakKeyRate = parseFloat(e.target.value);
+                    this.render();
+                };
+                
+                // Keyboard selector
+                const openKeyboardBtn = document.getElementById('openKeyboardBtn');
+                if (openKeyboardBtn) openKeyboardBtn.onclick = () => {
+                    this.showKeyboardSelector = true;
+                    this.render();
+                };
+                
+                const closeKeyboardBtn = document.getElementById('closeKeyboardBtn');
+                if (closeKeyboardBtn) closeKeyboardBtn.onclick = () => {
+                    this.showKeyboardSelector = false;
+                    this.render();
+                };
+                
+                const clearKeysBtn = document.getElementById('clearKeysBtn');
+                if (clearKeysBtn) clearKeysBtn.onclick = () => {
+                    this.focusKeys = [];
+                    this.saveFocusKeys();
+                    this.render();
+                };
+                
+                const doneKeyboardBtn = document.getElementById('doneKeyboardBtn');
+                if (doneKeyboardBtn) doneKeyboardBtn.onclick = () => {
+                    this.showKeyboardSelector = false;
+                    this.render();
+                };
+                
+                // Keyboard keys
+                KEYBOARD_LAYOUT.flat().forEach(key => {
+                    const btn = document.getElementById(`key-${key}`);
+                    if (btn) btn.onclick = () => this.toggleFocusKey(key);
+                });
+                
+                // Stats modal
+                const closeStatsBtn = document.getElementById('closeStatsBtn');
+                if (closeStatsBtn) closeStatsBtn.onclick = () => {
+                    this.showStats = false;
+                    this.render();
+                };
+                
+                const resetStatsBtn = document.getElementById('resetStatsBtn');
+                if (resetStatsBtn) resetStatsBtn.onclick = () => this.resetStats();
+                
+                const viewDetailsBtn = document.getElementById('viewDetailsBtn');
+                if (viewDetailsBtn) viewDetailsBtn.onclick = () => {
+                    this.showStats = true;
+                    this.render();
+                };
+                
+                // Playing buttons
+                const pauseBtn = document.getElementById('pauseBtn');
+                if (pauseBtn) pauseBtn.onclick = () => {
+                    this.isPaused = true;
+                    this.render();
+                };
+                
+                const resumeBtn = document.getElementById('resumeBtn');
+                if (resumeBtn) resumeBtn.onclick = () => {
+                    this.isPaused = false;
+                    this.render();
+                };
+                
+                const quitBtn = document.getElementById('quitBtn');
+                if (quitBtn) quitBtn.onclick = () => {
+                    this.gameState = 'menu';
+                    if (this.timerInterval) clearInterval(this.timerInterval);
+                    this.render();
+                };
+                
+                // Results buttons
+                const retryBtn = document.getElementById('retryBtn');
+                if (retryBtn) retryBtn.onclick = () => this.startGame();
+                
+                const backToMenuBtn = document.getElementById('backToMenuBtn');
+                if (backToMenuBtn) backToMenuBtn.onclick = () => {
+                    this.gameState = 'menu';
+                    this.render();
+                };
+            }
+
+            renderIcon(name) {
+                return INLINE_ICONS[name] || '';
+            }
+
+            renderSwitch(checked, activeColor = 'bg-green-500') {
+                return `
+                    <div class="relative w-12 h-7 rounded-full transition-colors duration-200 ease-in-out ${checked ? activeColor : 'bg-slate-600'}">
+                        <div class="absolute top-1 left-1 bg-white w-5 h-5 rounded-full shadow-md transform transition-transform duration-200 ease-in-out ${checked ? 'translate-x-5' : 'translate-x-0'}"></div>
+                    </div>
+                `;
+            }
+
+            renderMenu() {
+                return `
+                    <div class="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-4 font-sans select-none relative overflow-hidden">
+                        ${this.showKeyboardSelector ? this.renderKeyboardSelector() : ''}
+                        ${this.showSettings ? this.renderSettings() : ''}
+                        ${this.showStats ? this.renderStatsPanel() : ''}
+                        
+                        <button id="settingsBtn" class="absolute top-6 right-6 p-3 bg-slate-800 hover:bg-slate-700 rounded-full text-slate-400 hover:text-cyan-400 transition-all border border-slate-700 hover:border-cyan-400 z-10">
+                            ${this.renderIcon('settings')}
+                        </button>
+
+                        <div class="max-w-md w-full text-center space-y-8">
+                            <div class="space-y-2">
+                                <h1 class="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-600 tracking-tighter filter drop-shadow-lg">
+                                    NEO-TYPE
+                                    <span class="text-sm font-normal text-slate-500 block mt-2 tracking-widest">さよなら苦手キー</span>
+                                </h1>
                             </div>
-                            <div className="text-right">
-                                <span className="text-2xl font-bold text-red-400">{count}</span>
-                                <span className="text-xs text-slate-500 block">misses</span>
+                            
+                            <div class="bg-slate-800/50 p-6 rounded-2xl border border-slate-700 backdrop-blur-sm shadow-xl space-y-4">
+                                <p class="mb-4 text-sm text-slate-300 leading-relaxed text-left">
+                                    あなたが指定した苦手キーと過去のミス回数を学習、分析し、今のあなたに最適な問題を出し続け、最短ルートでのタイピング力向上をサポートします。
+                                </p>
+                                
+                                <div class="flex flex-col gap-3">
+                                    <button id="startBtn" class="group relative w-full px-8 py-4 rounded-xl font-bold text-xl transition-all shadow-[0_0_20px_rgba(8,145,178,0.5)] hover:shadow-[0_0_30px_rgba(34,211,238,0.6)] overflow-hidden ${this.settings.gameMode === 'legal' ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-cyan-600 hover:bg-cyan-500'}">
+                                        <span class="relative z-10 flex items-center justify-center gap-2">
+                                            ${this.settings.gameMode === 'legal' ? this.renderIcon('scale') : this.renderIcon('play')} START
+                                        </span>
+                                    </button>
+                                    <div class="text-xs text-slate-500 font-mono">Press [SPACE] to Start</div>
+                                </div>
+
+                                <button id="statsBtn" class="w-full py-3 mt-2 bg-slate-700/50 hover:bg-slate-700 rounded-xl font-bold text-slate-300 hover:text-white transition-all border border-slate-600 flex items-center justify-center gap-2">
+                                    ${this.renderIcon('bar-chart-2')} 学習データ詳細を見る
+                                </button>
+                            </div>
+                            
+                            <div class="text-xs text-slate-600 flex justify-center gap-4 flex-wrap">
+                                <span class="flex items-center gap-1">${this.renderIcon('clock')} ${this.settings.duration}s</span>
+                                <span class="flex items-center gap-1">
+                                    ${this.settings.sound ? this.renderIcon('volume-2') : this.renderIcon('volume-x')} ${this.settings.sound ? 'ON' : 'OFF'}
+                                </span>
+                                <span class="flex items-center gap-1 text-cyan-500">
+                                    ${this.settings.displayMode === 'ime' ? this.renderIcon('languages') : ''}
+                                    ${this.settings.displayMode === 'guide' ? this.renderIcon('eye') : ''}
+                                    ${this.settings.displayMode === 'input' ? this.renderIcon('eye-off') : ''}
+                                    ${this.settings.displayMode === 'ime' ? 'IME' : this.settings.displayMode === 'guide' ? 'Guide' : 'Input'}
+                                </span>
+                                <span class="flex items-center gap-1 ${this.settings.gameMode === 'legal' ? 'text-indigo-400 font-bold' : 'text-slate-500'}">
+                                    ${this.settings.gameMode === 'legal' ? this.renderIcon('scale') : this.renderIcon('keyboard')}
+                                    ${this.settings.gameMode === 'legal' ? 'Legal Mode' : 'Normal'}
+                                </span>
+                                ${this.settings.realMode ? `<span class="flex items-center gap-1 text-red-400 font-bold">${this.renderIcon('delete')} Real Mode</span>` : ''}
                             </div>
                         </div>
-                    ))}
-                </div>
-            )}
-          </div>
+                        <div class="absolute bottom-4 right-4 text-xs text-slate-600 font-mono select-none">
+                            © Tadashi Kotegawa
+                        </div>
+                    </div>
+                `;
+            }
 
-          {/* Footer */}
-          <div className="p-6 border-t border-slate-700 bg-slate-800/50 flex justify-between items-center rounded-b-2xl">
-              <button 
-                onClick={resetStats}
-                className="flex items-center gap-2 text-red-400 hover:text-red-300 transition-colors text-sm font-bold px-4 py-2 hover:bg-red-900/20 rounded-lg"
-              >
-                <Trash2 className="w-4 h-4" /> データリセット
-              </button>
-              <button 
-                onClick={() => setShowStats(false)}
-                className="px-6 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-bold transition-colors"
-              >
-                閉じる
-              </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
+            renderSettings() {
+                return `
+                    <div class="absolute inset-0 bg-slate-900/90 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
+                        <div class="bg-slate-800 p-8 rounded-2xl border border-slate-700 w-full max-w-xl shadow-2xl space-y-6 relative max-h-[85vh] overflow-y-auto">
+                            <button id="closeSettingsBtn" class="absolute top-4 right-4 text-slate-500 hover:text-white sticky top-0">
+                                ${this.renderIcon('x')}
+                            </button>
+                            <h2 class="text-2xl font-bold flex items-center gap-2 border-b border-slate-700 pb-4">
+                                ${this.renderIcon('settings')} Settings
+                            </h2>
+                            
+                            <div class="space-y-2">
+                                <label class="text-slate-400 text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+                                    ${this.renderIcon('clock')} Game Duration
+                                </label>
+                                <div class="grid grid-cols-3 gap-2">
+                                    ${[30, 60, 90, 120, 180, 300].map(time => `
+                                        <button id="duration${time}" class="py-2 rounded-lg font-bold transition-all ${
+                                            this.settings.duration === time 
+                                            ? 'bg-cyan-600 text-white shadow-[0_0_15px_rgba(8,145,178,0.5)]' 
+                                            : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
+                                        }">
+                                            ${time}s
+                                        </button>
+                                    `).join('')}
+                                </div>
+                            </div>
 
-  // --- UI Render ---
-  if (gameState === 'menu') {
-    return (
-      <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-4 font-sans select-none relative overflow-hidden">
-        {showKeyboardSelector && <KeyboardSelector />}
-        {showSettings && <SettingsPanel />}
-        {showStats && <StatsPanel />}
-        
-        {/* Settings Button */}
-        <button 
-          onClick={() => setShowSettings(true)}
-          className="absolute top-6 right-6 p-3 bg-slate-800 hover:bg-slate-700 rounded-full text-slate-400 hover:text-cyan-400 transition-all border border-slate-700 hover:border-cyan-400 z-10"
-        >
-          <Settings className="w-6 h-6" />
-        </button>
+                            <div class="space-y-2">
+                                <label class="text-slate-400 text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+                                    ${this.renderIcon('target')} 苦手キーを指定
+                                </label>
+                                <div class="bg-slate-700/50 p-4 rounded-xl border border-slate-600 flex flex-col gap-3">
+                                    <div class="text-xs text-slate-400">
+                                        ${this.focusKeys.length > 0 
+                                            ? `<span class="text-cyan-400 font-mono font-bold break-all">${this.focusKeys.join(', ').toUpperCase()}</span>`
+                                            : "No keys selected (Auto only)"}
+                                    </div>
+                                    <button id="openKeyboardBtn" class="w-full py-2 bg-slate-600 hover:bg-slate-500 rounded-lg text-sm font-bold text-white transition-colors flex items-center justify-center gap-2">
+                                        ${this.renderIcon('keyboard')} Select Keys on Keyboard
+                                    </button>
+                                    
+                                    <div class="flex items-center justify-between py-2 border-t border-slate-600/50 mt-2">
+                                        <span class="text-xs font-bold text-slate-300">母音(AIUEO)を分析から除外</span>
+                                        <button id="ignoreVowelsSwitch" class="scale-75 origin-right">
+                                            ${this.renderSwitch(this.settings.ignoreVowels, 'bg-cyan-600')}
+                                        </button>
+                                    </div>
 
-        <div className="max-w-md w-full text-center space-y-8">
-          <div className="space-y-2">
-            <h1 className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-600 tracking-tighter filter drop-shadow-lg">
-              NEO-TYPE
-              <span className="text-sm font-normal text-slate-500 block mt-2 tracking-widest">さよなら苦手キー</span>
-            </h1>
-          </div>
-          
-          <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700 backdrop-blur-sm shadow-xl space-y-4">
-            <p className="mb-4 text-sm text-slate-300 leading-relaxed text-left">
-              あなたが指定した苦手キーと過去のミス回数を学習、分析し、今のあなたに最適な問題を出し続け、最短ルートでのタイピング力向上をサポートします。
-            </p>
-            
-            <div className="flex flex-col gap-3">
-              <button 
-                onClick={startGame}
-                className={`group relative w-full px-8 py-4 rounded-xl font-bold text-xl transition-all shadow-[0_0_20px_rgba(8,145,178,0.5)] hover:shadow-[0_0_30px_rgba(34,211,238,0.6)] overflow-hidden ${settings.gameMode === 'legal' ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-cyan-600 hover:bg-cyan-500'}`}
-              >
-                <span className="relative z-10 flex items-center justify-center gap-2">
-                  {settings.gameMode === 'legal' ? <Scale className="w-6 h-6" /> : <Play className="w-6 h-6" />} START
-                </span>
-              </button>
-              <div className="text-xs text-slate-500 font-mono">Press [SPACE] to Start</div>
-            </div>
+                                    <div class="pt-2 border-t border-slate-600/50">
+                                        <div class="flex justify-between items-center mb-1">
+                                            <span class="text-xs font-bold text-slate-300">苦手キー出現率</span>
+                                            <span class="text-xs font-mono text-cyan-400">${Math.round(this.settings.weakKeyRate * 100)}%</span>
+                                        </div>
+                                        <input id="weakKeyRateSlider" type="range" min="0" max="1" step="0.1" value="${this.settings.weakKeyRate}" class="w-full h-2 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-cyan-500" />
+                                    </div>
+                                </div>
+                            </div>
 
-            {/* 学習データ確認ボタン */}
-            <button 
-              onClick={() => setShowStats(true)}
-              className="w-full py-3 mt-2 bg-slate-700/50 hover:bg-slate-700 rounded-xl font-bold text-slate-300 hover:text-white transition-all border border-slate-600 flex items-center justify-center gap-2"
-            >
-              <BarChart2 className="w-5 h-5" /> 学習データ詳細を見る
-            </button>
-          </div>
-          
-          <div className="text-xs text-slate-600 flex justify-center gap-4 flex-wrap">
-            <span className="flex items-center gap-1"><Clock className="w-3 h-3"/> {settings.duration}s</span>
-            <span className="flex items-center gap-1">
-              {settings.sound ? <Volume2 className="w-3 h-3"/> : <VolumeX className="w-3 h-3"/>} {settings.sound ? 'ON' : 'OFF'}
-            </span>
-            <span className="flex items-center gap-1 text-cyan-500">
-               {settings.displayMode === 'ime' && <Languages className="w-3 h-3"/>}
-               {settings.displayMode === 'guide' && <Eye className="w-3 h-3"/>}
-               {settings.displayMode === 'input' && <EyeOff className="w-3 h-3"/>}
-               {settings.displayMode === 'ime' ? 'IME' : settings.displayMode === 'guide' ? 'Guide' : 'Input'}
-            </span>
-            <span className={`flex items-center gap-1 ${settings.gameMode === 'legal' ? 'text-indigo-400 font-bold' : 'text-slate-500'}`}>
-                {settings.gameMode === 'legal' ? <Scale className="w-3 h-3"/> : <Keyboard className="w-3 h-3"/>}
-                {settings.gameMode === 'legal' ? 'Legal Mode' : 'Normal'}
-            </span>
-            {settings.realMode && (
-                <span className="flex items-center gap-1 text-red-400 font-bold">
-                    <Delete className="w-3 h-3"/> Real Mode
-                </span>
-            )}
-          </div>
-        </div>
-        <div className="absolute bottom-4 right-4 text-xs text-slate-600 font-mono select-none">
-          © Tadashi Kotegawa
-        </div>
-      </div>
-    );
-  }
+                            <div class="space-y-2">
+                                <label class="text-slate-400 text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+                                    ${this.settings.sound ? this.renderIcon('volume-2') : this.renderIcon('volume-x')} 
+                                    Sound Effects
+                                </label>
+                                <div class="flex gap-2 bg-slate-700 p-1 rounded-lg">
+                                    <button id="soundOn" class="flex-1 py-2 rounded-md font-bold text-sm transition-all ${
+                                        this.settings.sound ? 'bg-cyan-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+                                    }">
+                                        ON
+                                    </button>
+                                    <button id="soundOff" class="flex-1 py-2 rounded-md font-bold text-sm transition-all ${
+                                        !this.settings.sound ? 'bg-red-500/80 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+                                    }">
+                                        OFF
+                                    </button>
+                                </div>
+                            </div>
 
-  // --- Result Screen ---
-  if (gameState === 'finished') {
-    const sortedMisses = Object.entries(missStats).sort(([, a], [, b]) => b - a);
+                            <div class="space-y-2">
+                                <label class="text-slate-400 text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+                                    ${this.renderIcon('eye')} Display Mode
+                                </label>
+                                <div class="flex gap-2 bg-slate-700 p-1 rounded-lg">
+                                    <button id="displayIme" class="flex-1 py-2 rounded-md font-bold text-sm transition-all flex flex-col items-center justify-center ${
+                                        this.settings.displayMode === 'ime' ? 'bg-cyan-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+                                    }">
+                                        <div class="flex items-center gap-1">${this.renderIcon('languages')} IME</div>
+                                        <span class="text-[10px] font-normal opacity-80">ひらがな変換</span>
+                                    </button>
+                                    <button id="displayInput" class="flex-1 py-2 rounded-md font-bold text-sm transition-all flex flex-col items-center justify-center ${
+                                        this.settings.displayMode === 'input' ? 'bg-cyan-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+                                    }">
+                                        <div class="flex items-center gap-1">${this.renderIcon('eye-off')} Input</div>
+                                        <span class="text-[10px] font-normal opacity-80">打つと表示</span>
+                                    </button>
+                                    <button id="displayGuide" class="flex-1 py-2 rounded-md font-bold text-sm transition-all flex flex-col items-center justify-center ${
+                                        this.settings.displayMode === 'guide' ? 'bg-cyan-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+                                    }">
+                                        <div class="flex items-center gap-1">${this.renderIcon('eye')} Guide</div>
+                                        <span class="text-[10px] font-normal opacity-80">最初から表示</span>
+                                    </button>
+                                </div>
+                            </div>
 
-    return (
-      <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-4 font-sans select-none">
-        {showStats && <StatsPanel />}
+                            <div class="flex flex-col gap-4 py-4 border-t border-slate-700/50 mt-4">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-3">
+                                        <div class="p-2 rounded-lg ${this.settings.gameMode === 'legal' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-slate-700 text-slate-400'}">
+                                            ${this.settings.gameMode === 'legal' ? this.renderIcon('scale') : this.renderIcon('keyboard')}
+                                        </div>
+                                        <div class="flex flex-col">
+                                            <span class="font-bold text-slate-200">Legal Terms Mode</span>
+                                            <span class="text-xs text-slate-500">法律用語（200語）で練習する</span>
+                                        </div>
+                                    </div>
+                                    <button id="legalModeSwitch">
+                                        ${this.renderSwitch(this.settings.gameMode === 'legal', 'bg-indigo-600')}
+                                    </button>
+                                </div>
 
-        <div className="max-w-2xl w-full bg-slate-800 rounded-3xl p-8 border border-slate-700 shadow-2xl space-y-8 animate-in zoom-in-95 duration-300">
-          <div className="text-center space-y-2">
-            <h2 className="text-4xl font-bold text-white">Result</h2>
-            <div className={`text-6xl font-black ${settings.gameMode === 'legal' ? 'text-indigo-400' : 'text-cyan-400'}`}>{score.toLocaleString()} <span className="text-2xl text-slate-500">pts</span></div>
-          </div>
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-3">
+                                        <div class="p-2 rounded-lg ${this.settings.realMode ? 'bg-red-500/20 text-red-400' : 'bg-slate-700 text-slate-400'}">
+                                            ${this.renderIcon('delete')}
+                                        </div>
+                                        <div class="flex flex-col">
+                                            <span class="font-bold text-slate-200">Real Typing Mode</span>
+                                            <span class="text-xs text-slate-500">ミスをBackspaceで消す実戦形式</span>
+                                        </div>
+                                    </div>
+                                    <button id="realModeSwitch">
+                                        ${this.renderSwitch(this.settings.realMode, 'bg-red-600')}
+                                    </button>
+                                </div>
+                            </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-slate-900/50 p-4 rounded-xl flex items-center justify-between border border-slate-700">
-              <span className="text-slate-400 flex items-center gap-2"><Trophy className="w-5 h-5"/> Max Combo</span>
-              <span className="text-2xl font-bold text-yellow-400">{maxCombo}</span>
-            </div>
-            <div className="bg-slate-900/50 p-4 rounded-xl flex items-center justify-between border border-slate-700">
-              <span className="text-slate-400 flex items-center gap-2"><AlertCircle className="w-5 h-5"/> Total Misses</span>
-              <span className="text-2xl font-bold text-red-400">
-                {Object.values(missStats).reduce((a, b) => a + b, 0)}
-              </span>
-            </div>
-          </div>
+                            <button id="saveSettingsBtn" class="w-full py-4 bg-slate-700 hover:bg-slate-600 rounded-xl font-bold text-white transition-colors">
+                                Close & Save
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
 
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-bold text-slate-300 flex items-center gap-2">
-                <Zap className="w-5 h-5 text-yellow-400"/> Weak Keys Analysis
-              </h3>
-              <button onClick={() => setShowStats(true)} className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-bold">
-                 <BarChart2 className="w-3 h-3" /> View Details
-              </button>
-            </div>
-            {sortedMisses.length > 0 ? (
-              <div className="grid grid-cols-5 gap-2">
-                {sortedMisses.slice(0, 10).map(([key, count]) => (
-                  <div key={key} className="flex flex-col items-center bg-red-900/20 border border-red-500/30 rounded-lg p-2">
-                    <span className="text-2xl font-mono font-bold text-red-400 uppercase">{key}</span>
-                    <span className="text-xs text-red-300">{count} miss</span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-green-400 bg-green-900/20 p-3 rounded-lg text-center border border-green-500/30">
-                Perfect Typing!
-              </div>
-            )}
-          </div>
+            renderKeyboardSelector() {
+                return `
+                    <div class="absolute inset-0 bg-slate-900/95 z-[60] flex items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-200">
+                        <div class="bg-slate-800 p-8 rounded-2xl border border-slate-700 w-full max-w-3xl shadow-2xl relative flex flex-col items-center">
+                            <button id="closeKeyboardBtn" class="absolute top-4 right-4 text-slate-500 hover:text-white">
+                                ${this.renderIcon('x')}
+                            </button>
+                            
+                            <h3 class="text-xl font-bold text-slate-200 mb-2 flex items-center gap-2">
+                                ${this.renderIcon('target')} 苦手キーを指定
+                            </h3>
+                            <p class="text-slate-400 text-sm mb-8">
+                                クリックして重点的に練習したいキーを選択してください（青色が選択中）
+                            </p>
 
-          <div className="flex flex-col items-center gap-2 pt-4">
-            <button 
-              onClick={startGame}
-              className={`flex items-center gap-2 px-8 py-3 rounded-xl font-bold transition-colors shadow-lg hover:shadow-cyan-500/25 ${settings.gameMode === 'legal' ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-cyan-600 hover:bg-cyan-500'}`}
-            >
-              <RotateCcw className="w-5 h-5" /> もう一度挑戦
-            </button>
-            <div className="text-xs text-slate-500 font-mono">Press [SPACE] to Retry</div>
-            
-            <button onClick={() => setGameState('menu')} className="mt-2 text-sm text-slate-400 hover:text-white underline">
-              Back to Menu
-            </button>
-          </div>
-        </div>
-        <div className="absolute bottom-4 right-4 text-xs text-slate-600 font-mono select-none">
-          © Tadashi Kotegawa
-        </div>
-      </div>
-    );
-  }
+                            <div class="flex flex-col gap-2 mb-8 select-none">
+                                ${KEYBOARD_LAYOUT.map((row, rowIndex) => `
+                                    <div class="flex justify-center gap-2">
+                                        ${row.map(key => {
+                                            const isSelected = this.focusKeys.includes(key);
+                                            return `
+                                                <button id="key-${key}" class="w-12 h-12 rounded-lg font-mono font-bold text-lg uppercase transition-all duration-150 transform active:scale-95 ${
+                                                    isSelected 
+                                                        ? 'bg-cyan-600 text-white shadow-[0_0_15px_rgba(8,145,178,0.5)] border-cyan-400' 
+                                                        : 'bg-slate-700 text-slate-400 hover:bg-slate-600 border-slate-600'
+                                                } border">
+                                                    ${key}
+                                                </button>
+                                            `;
+                                        }).join('')}
+                                    </div>
+                                `).join('')}
+                            </div>
 
-  // --- Playing UI ---
-  return (
-    <div className="min-h-screen bg-slate-900 text-white flex flex-col font-sans select-none overflow-hidden">
-      
-      {/* Animation Styles */}
-      <style>{`
-        @keyframes shake {
-          0%, 100% { transform: translateX(0); }
-          25% { transform: translateX(-4px); }
-          75% { transform: translateX(4px); }
-        }
-        .animate-shake {
-          animation: shake 0.2s cubic-bezier(.36,.07,.19,.97) both;
-        }
-        
-        @keyframes floatUp {
-          0% { opacity: 1; transform: translateY(0) scale(1); }
-          50% { opacity: 1; transform: translateY(-20px) scale(1.1); }
-          100% { opacity: 0; transform: translateY(-40px) scale(1.2); }
-        }
-        .animate-float-up {
-          animation: floatUp 0.6s ease-out forwards;
-        }
-      `}</style>
+                            <div class="flex gap-4">
+                                <button id="clearKeysBtn" class="px-6 py-3 rounded-xl font-bold text-slate-400 hover:text-white hover:bg-slate-700 transition-colors">
+                                    Clear All
+                                </button>
+                                <button id="doneKeyboardBtn" class="px-8 py-3 bg-cyan-600 hover:bg-cyan-500 rounded-xl font-bold text-white transition-colors shadow-lg">
+                                    Done
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
 
-      {/* Pause Overlay */}
-      {isPaused && <PauseOverlay />}
+            renderStatsPanel() {
+                const sortedStats = Object.entries(this.missStats).sort(([, a], [, b]) => b - a);
+                
+                return `
+                    <div class="absolute inset-0 bg-slate-900/95 z-50 flex items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-200">
+                        <div class="bg-slate-800 rounded-2xl border border-slate-700 w-full max-w-2xl h-[80vh] flex flex-col shadow-2xl">
+                            <div class="p-6 border-b border-slate-700 flex justify-between items-center">
+                                <h2 class="text-2xl font-bold flex items-center gap-3">
+                                    ${this.renderIcon('bar-chart-2')} 
+                                    Learning Data
+                                    <span class="text-sm font-normal text-slate-400 ml-2">累積ミス回数ランキング</span>
+                                </h2>
+                                <button id="closeStatsBtn" class="p-2 hover:bg-slate-700 rounded-full transition-colors">
+                                    ${this.renderIcon('x')}
+                                </button>
+                            </div>
 
-      <div className="p-6 flex justify-between items-end border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-10">
-        <div className="space-y-1">
-          <div className="text-sm text-slate-400 font-bold tracking-wider">SCORE</div>
-          <div className={`text-4xl font-mono font-bold leading-none ${settings.gameMode === 'legal' ? 'text-indigo-400' : 'text-cyan-400'}`}>{score.toLocaleString()}</div>
-        </div>
-        
-        <div className="flex-1 mx-8 max-w-xl">
-           <div className="flex justify-between text-xs text-slate-400 mb-1">
-             <span className="flex items-center gap-2">
-                TIME LIMIT
-                {settings.gameMode === 'legal' && <span className="bg-indigo-900 text-indigo-300 px-2 rounded-full text-[10px] font-bold border border-indigo-700 flex items-center gap-1"><Scale className="w-3 h-3"/> LEGAL MODE</span>}
-                {settings.realMode && <span className="bg-red-900 text-red-300 px-2 rounded-full text-[10px] font-bold border border-red-700 flex items-center gap-1"><Delete className="w-3 h-3"/> REAL MODE</span>}
-             </span>
-             <span className={`${timeLeft < 10 ? 'text-red-500 animate-pulse' : ''}`}>{timeLeft}s</span>
-           </div>
-           <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
-             <div 
-               className={`h-full transition-all duration-1000 ease-linear ${timeLeft < 10 ? 'bg-red-500' : (settings.gameMode === 'legal' ? 'bg-indigo-500' : 'bg-cyan-500')}`}
-               style={{ width: `${(timeLeft / settings.duration) * 100}%` }}
-             />
-           </div>
-        </div>
+                            <div class="flex-1 overflow-y-auto p-6">
+                                ${sortedStats.length === 0 ? `
+                                    <div class="h-full flex flex-col items-center justify-center text-slate-500 space-y-4">
+                                        ${this.renderIcon('trophy')}
+                                        <p>データがありません。ゲームをプレイしてデータを集めましょう。</p>
+                                    </div>
+                                ` : `
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        ${sortedStats.map(([key, count], index) => `
+                                            <div class="flex items-center justify-between bg-slate-700/50 p-4 rounded-xl border border-slate-700/50">
+                                                <div class="flex items-center gap-4">
+                                                    <span class="flex items-center justify-center w-8 h-8 rounded font-bold text-sm ${
+                                                        index === 0 ? 'bg-yellow-500 text-black' : 
+                                                        index === 1 ? 'bg-gray-400 text-black' : 
+                                                        index === 2 ? 'bg-orange-600 text-white' : 'bg-slate-600 text-slate-300'
+                                                    }">
+                                                        ${index + 1}
+                                                    </span>
+                                                    <span class="text-3xl font-mono font-bold text-white uppercase">${key}</span>
+                                                </div>
+                                                <div class="text-right">
+                                                    <span class="text-2xl font-bold text-red-400">${count}</span>
+                                                    <span class="text-xs text-slate-500 block">misses</span>
+                                                </div>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                `}
+                            </div>
 
-        <div className="space-y-1 text-right flex flex-col items-end gap-2">
-          {/* Pause Button */}
-          <button 
-            onClick={() => setIsPaused(true)}
-            className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-slate-400 hover:text-white transition-colors border border-slate-700"
-          >
-             <Pause className="w-5 h-5" />
-          </button>
-          
-          <div className="text-sm text-slate-400 font-bold tracking-wider">COMBO</div>
-          <div className="text-4xl font-mono font-bold text-yellow-400 leading-none">{combo}</div>
-        </div>
-      </div>
+                            <div class="p-6 border-t border-slate-700 bg-slate-800/50 flex justify-between items-center rounded-b-2xl">
+                                <button id="resetStatsBtn" class="flex items-center gap-2 text-red-400 hover:text-red-300 transition-colors text-sm font-bold px-4 py-2 hover:bg-red-900/20 rounded-lg">
+                                    ${this.renderIcon('trash-2')} データリセット
+                                </button>
+                                <button id="closeStatsBtn" class="px-6 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-bold transition-colors">
+                                    閉じる
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
 
-      <div className="flex-1 flex flex-col items-center justify-center relative p-4">
-        
-        {/* Miss & Perfect Feedback Animation */}
-        {feedback && (
-            <div 
-                key={feedback.id} // Re-render on new feedback
-                className={`absolute top-1/4 text-4xl font-black tracking-widest z-50 pointer-events-none animate-float-up ${feedback.color}`}
-                style={{ textShadow: '0 0 10px rgba(0,0,0,0.5)' }}
-            >
-                {feedback.text}
-            </div>
-        )}
+            renderPlaying() {
+                if (!this.currentWordData) return '';
+                
+                const activeNodeIndex = this.currentWordData.nodes.findIndex(n => !n.isDone);
+                
+                return `
+                    <div class="min-h-screen bg-slate-900 text-white flex flex-col font-sans select-none overflow-hidden">
+                        ${this.isPaused ? this.renderPauseOverlay() : ''}
 
-        <div className={`w-full max-w-4xl bg-slate-800/50 rounded-3xl border p-12 text-center backdrop-blur-sm shadow-[0_0_50px_rgba(0,0,0,0.3)] transition-colors relative ${settings.gameMode === 'legal' ? 'border-indigo-900/50 shadow-indigo-900/20' : 'border-slate-700'} ${shake ? 'animate-shake' : ''}`}>
-          
-          {/* 苦手キー出題中の表示 */}
-          {currentWordData?.isWeakMode && (
-              <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-yellow-600/90 text-white px-6 py-1 rounded-full text-sm font-bold shadow-lg border border-yellow-400/50 flex items-center gap-2 animate-pulse">
-                  <Target className="w-4 h-4" /> 
-                  WEAK KEY CHALLENGE
-                  <Target className="w-4 h-4" />
-              </div>
-          )}
-
-          <div className="mb-8 space-y-2">
-            <h2 className="text-5xl md:text-7xl font-black text-white drop-shadow-lg tracking-wide whitespace-nowrap overflow-hidden text-ellipsis">
-              {currentWordData?.text}
-            </h2>
-            <p className="text-2xl text-slate-400 font-medium">
-              {currentWordData?.kana}
-            </p>
-          </div>
-
-          <div className="mt-4 flex justify-center flex-wrap gap-1 text-5xl md:text-6xl font-mono font-bold tracking-wider h-24 items-center">
-             {currentWordData?.nodes.map((node, i) => (
-               <div key={i} className="relative inline-flex justify-center min-w-[1ch]">
-                 <div className="grid grid-stack items-center justify-items-center">
-                    {/* レイヤー1: 幅確保用のガイド（透明） */}
-                    <span className="row-start-1 col-start-1 opacity-0 select-none pointer-events-none whitespace-pre">
-                        {settings.displayMode === 'ime' 
-                            ? node.char // IMEモードはひらがな幅確保
-                            : node.selectedOption // Guideモードはローマ字幅確保
-                        }
-                    </span>
-
-                    {/* レイヤー2: 実際の表示 */}
-                    <span className={`row-start-1 col-start-1 whitespace-nowrap transition-colors duration-75 
-                        ${/* 完了状態の色 */
-                          node.isDone 
-                            ? (settings.gameMode === 'legal' ? 'text-indigo-400' : 'text-cyan-400')
-                            : ''
-                        }
-                    `}>
-                        {settings.displayMode === 'ime' ? (
-                            // IMEモード
-                            node.isDone ? node.char : (
-                                // 未完了: 入力文字を表示（RealModeなら色分け）
-                                settings.realMode ? (
-                                    <span>
-                                        {node.input.split('').map((char, idx) => {
-                                            const isValid = node.options.some(opt => opt.startsWith(node.input.slice(0, idx + 1)));
-                                            return (
-                                                <span key={idx} className={isValid ? (settings.gameMode === 'legal' ? 'text-indigo-400' : 'text-cyan-400') : 'text-red-500'}>
-                                                    {char}
-                                                </span>
-                                            );
-                                        })}
-                                        {/* カーソル: RealMode IMEの場合、文字の後ろに */}
-                                        {!node.isDone && i === currentWordData.nodes.findIndex(n => !n.isDone) && (
-                                            <span className="inline-block w-[2px] h-[1em] bg-yellow-400 animate-pulse align-middle ml-[1px] -mt-[0.2em]" />
-                                        )}
+                        <div class="p-6 flex justify-between items-end border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-10">
+                            <div class="space-y-1">
+                                <div class="text-sm text-slate-400 font-bold tracking-wider">SCORE</div>
+                                <div class="text-4xl font-mono font-bold leading-none ${this.settings.gameMode === 'legal' ? 'text-indigo-400' : 'text-cyan-400'}">${this.score.toLocaleString()}</div>
+                            </div>
+                            
+                            <div class="flex-1 mx-8 max-w-xl">
+                                <div class="flex justify-between text-xs text-slate-400 mb-1">
+                                    <span class="flex items-center gap-2">
+                                        TIME LIMIT
+                                        ${this.settings.gameMode === 'legal' ? `<span class="bg-indigo-900 text-indigo-300 px-2 rounded-full text-[10px] font-bold border border-indigo-700 flex items-center gap-1">${this.renderIcon('scale')} LEGAL MODE</span>` : ''}
+                                        ${this.settings.realMode ? `<span class="bg-red-900 text-red-300 px-2 rounded-full text-[10px] font-bold border border-red-700 flex items-center gap-1">${this.renderIcon('delete')} REAL MODE</span>` : ''}
                                     </span>
-                                ) : (
-                                    // Normal IME: 入力中はローマ字（青）、未入力は薄いひらがな
-                                    node.input.length > 0 ? (
-                                        <span className={settings.gameMode === 'legal' ? 'text-indigo-400' : 'text-cyan-400'}>
-                                            {node.input}
-                                        </span>
-                                    ) : (
-                                        <span className="text-slate-700">{node.char}</span>
-                                    )
-                                )
-                            )
-                        ) : (
-                            // Guide / Input モード
-                            settings.realMode ? (
-                                // Real Mode: Guide/Input
+                                    <span class="${this.timeLeft < 10 ? 'text-red-500 animate-pulse' : ''}">${this.timeLeft}s</span>
+                                </div>
+                                <div class="h-2 bg-slate-800 rounded-full overflow-hidden">
+                                    <div class="h-full transition-all duration-1000 ease-linear ${this.timeLeft < 10 ? 'bg-red-500' : (this.settings.gameMode === 'legal' ? 'bg-indigo-500' : 'bg-cyan-500')}" style="width: ${(this.timeLeft / this.settings.duration) * 100}%"></div>
+                                </div>
+                            </div>
+
+                            <div class="space-y-1 text-right flex flex-col items-end gap-2">
+                                <button id="pauseBtn" class="p-2 bg-slate-800 hover:bg-slate-700 rounded-full text-slate-400 hover:text-white transition-colors border border-slate-700">
+                                    ${this.renderIcon('pause')}
+                                </button>
+                                
+                                <div class="text-sm text-slate-400 font-bold tracking-wider">COMBO</div>
+                                <div class="text-4xl font-mono font-bold text-yellow-400 leading-none">${this.combo}</div>
+                            </div>
+                        </div>
+
+                        <div class="flex-1 flex flex-col items-center justify-center relative p-4">
+                            ${this.feedback ? `
+                                <div class="absolute top-1/4 text-4xl font-black tracking-widest z-50 pointer-events-none animate-float-up ${this.feedback.color}" style="text-shadow: 0 0 10px rgba(0,0,0,0.5)">
+                                    ${this.feedback.text}
+                                </div>
+                            ` : ''}
+
+                            <div class="w-full max-w-4xl bg-slate-800/50 rounded-3xl border p-12 text-center backdrop-blur-sm shadow-[0_0_50px_rgba(0,0,0,0.3)] transition-colors relative ${this.settings.gameMode === 'legal' ? 'border-indigo-900/50 shadow-indigo-900/20' : 'border-slate-700'} ${this.shake ? 'animate-shake' : ''}">
+                                
+                                ${this.currentWordData.isWeakMode ? `
+                                    <div class="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-yellow-600/90 text-white px-6 py-1 rounded-full text-sm font-bold shadow-lg border border-yellow-400/50 flex items-center gap-2 animate-pulse">
+                                        ${this.renderIcon('target')} 
+                                        WEAK KEY CHALLENGE
+                                        ${this.renderIcon('target')}
+                                    </div>
+                                ` : ''}
+
+                                <div class="mb-8 space-y-2">
+                                    <h2 class="text-5xl md:text-7xl font-black text-white drop-shadow-lg tracking-wide whitespace-nowrap overflow-hidden text-ellipsis">
+                                        ${this.escapeHtml(this.currentWordData.text)}
+                                    </h2>
+                                    <p class="text-2xl text-slate-400 font-medium">
+                                        ${this.escapeHtml(this.currentWordData.kana)}
+                                    </p>
+                                </div>
+
+                                <div class="mt-4 flex justify-center flex-wrap gap-1 text-5xl md:text-6xl font-mono font-bold tracking-wider h-24 items-center">
+                                    ${this.currentWordData.nodes.map((node, i) => {
+                                        return this.renderNode(node, i === activeNodeIndex);
+                                    }).join('')}
+                                </div>
+                            </div>
+
+                            <div class="mt-12 text-slate-500 flex items-center gap-2">
+                                ${this.settings.gameMode === 'legal' ? this.renderIcon('book-open') : this.renderIcon('keyboard')}
                                 <span>
-                                    {/* 入力済み部分 */}
-                                    {node.input.split('').map((char, idx) => {
-                                        const isValid = node.options.some(opt => opt.startsWith(node.input.slice(0, idx + 1)));
-                                        return (
-                                            <span key={idx} className={isValid ? (settings.gameMode === 'legal' ? 'text-indigo-400' : 'text-cyan-400') : 'text-red-500'}>
-                                                {char}
-                                            </span>
-                                        );
-                                    })}
-                                    {/* 未入力部分（ガイド） */}
-                                    {settings.displayMode === 'guide' && (
-                                        <span className="text-slate-700">
-                                            {node.selectedOption.slice(node.input.length)}
-                                        </span>
-                                    )}
-                                    {/* カーソル */}
-                                    {!node.isDone && i === currentWordData.nodes.findIndex(n => !n.isDone) && (
-                                         <span className="absolute inline-block w-[2px] h-[1em] bg-yellow-400 animate-pulse align-middle -mt-[0.2em]" 
-                                            style={{ marginLeft: `${node.input.length}ch`}}
-                                         />
-                                    )}
+                                    ${this.settings.gameMode === 'legal' ? 'Legal Terms Mode Active' : 'Type keys to play'} (Flexible input supported)
                                 </span>
-                            ) : (
-                                // Normal Mode: Guide/Input (Overlay method)
-                                <span className="relative">
-                                    <span className={settings.displayMode === 'guide' ? "text-slate-700" : "text-transparent"}>
-                                        {node.selectedOption}
-                                    </span>
-                                    <span className={`absolute top-0 left-0 ${settings.gameMode === 'legal' ? 'text-indigo-400' : 'text-cyan-400'} overflow-hidden whitespace-nowrap transition-all duration-75`}
-                                          style={{ width: `${(node.input.length / node.selectedOption.length) * 100}%` }}>
-                                        {node.selectedOption}
-                                    </span>
-                                </span>
-                            )
-                        )}
-                    </span>
-                 </div>
+                            </div>
+                            
+                            <div class="absolute bottom-4 right-4 text-xs text-slate-600 font-mono select-none">
+                                © Tadashi Kotegawa
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
 
-                 {/* カーソル (Normal Mode Only) */}
-                 {!node.isDone && !settings.realMode && i === currentWordData.nodes.findIndex(n => !n.isDone) && (
-                   <div className="absolute bottom-0 left-0 w-full h-1 bg-yellow-400 animate-pulse" 
-                        style={{ 
-                            left: settings.displayMode === 'ime' 
-                                ? `${Math.min(node.input.length, node.char.length)}ch` 
-                                : `${node.input.length}ch`, 
-                            width: '1ch' 
-                        }} />
-                 )}
-               </div>
-             ))}
-          </div>
-        </div>
+            renderNode(node, isActive) {
+                const colorClass = this.settings.gameMode === 'legal' ? 'text-indigo-400' : 'text-cyan-400';
+                
+                let content = '';
+                
+                if (this.settings.displayMode === 'ime') {
+                    if (node.isDone) {
+                        content = `<span class="${colorClass}">${this.escapeHtml(node.char)}</span>`;
+                    } else {
+                        if (this.settings.realMode) {
+                            const chars = node.input.split('').map((char, idx) => {
+                                const isValid = node.options.some(opt => opt.startsWith(node.input.slice(0, idx + 1)));
+                                return `<span class="${isValid ? colorClass : 'text-red-500'}">${this.escapeHtml(char)}</span>`;
+                            }).join('');
+                            content = chars + (isActive ? '<span class="inline-block w-[2px] h-[1em] bg-yellow-400 animate-pulse align-middle ml-[1px] -mt-[0.2em]"></span>' : '');
+                        } else {
+                            if (node.input.length > 0) {
+                                content = `<span class="${colorClass}">${this.escapeHtml(node.input)}</span>`;
+                            } else {
+                                content = `<span class="text-slate-700">${this.escapeHtml(node.char)}</span>`;
+                            }
+                        }
+                    }
+                } else {
+                    if (this.settings.realMode) {
+                        const inputChars = node.input.split('').map((char, idx) => {
+                            const isValid = node.options.some(opt => opt.startsWith(node.input.slice(0, idx + 1)));
+                            return `<span class="${isValid ? colorClass : 'text-red-500'}">${this.escapeHtml(char)}</span>`;
+                        }).join('');
+                        
+                        const remaining = this.settings.displayMode === 'guide' 
+                            ? `<span class="text-slate-700">${this.escapeHtml(node.selectedOption.slice(node.input.length))}</span>`
+                            : '';
+                        
+                        const cursor = isActive && !node.isDone 
+                            ? `<span class="absolute inline-block w-[2px] h-[1em] bg-yellow-400 animate-pulse align-middle -mt-[0.2em]" style="margin-left: ${node.input.length}ch"></span>`
+                            : '';
+                        
+                        content = inputChars + remaining + cursor;
+                    } else {
+                        const bgText = this.settings.displayMode === 'guide' 
+                            ? `<span class="text-slate-700">${this.escapeHtml(node.selectedOption)}</span>`
+                            : `<span class="text-transparent">${this.escapeHtml(node.selectedOption)}</span>`;
+                        
+                        const progress = node.input.length / node.selectedOption.length * 100;
+                        const overlay = `<span class="absolute top-0 left-0 ${colorClass} overflow-hidden whitespace-nowrap transition-all duration-75" style="width: ${progress}%">${this.escapeHtml(node.selectedOption)}</span>`;
+                        
+                        content = `<span class="relative">${bgText}${overlay}</span>`;
+                    }
+                }
 
-        <div className="mt-12 text-slate-500 flex items-center gap-2">
-          {settings.gameMode === 'legal' ? <BookOpen className="w-5 h-5"/> : <Keyboard className="w-5 h-5"/>}
-          <span>
-            {settings.gameMode === 'legal' ? 'Legal Terms Mode Active' : 'Type keys to play'} (Flexible input supported)
-          </span>
-        </div>
-        
-        <div className="absolute bottom-4 right-4 text-xs text-slate-600 font-mono select-none">
-          © Tadashi Kotegawa
-        </div>
-      </div>
-    </div>
-  );
-}
+                const spacerText = this.settings.displayMode === 'ime' ? node.char : node.selectedOption;
+                const cursor = !node.isDone && !this.settings.realMode && isActive
+                    ? `<div class="absolute bottom-0 left-0 w-full h-1 bg-yellow-400 animate-pulse" style="left: ${this.settings.displayMode === 'ime' ? Math.min(node.input.length, node.char.length) : node.input.length}ch; width: 1ch"></div>`
+                    : '';
+
+                return `
+                    <div class="relative inline-flex justify-center min-w-[1ch]">
+                        <div class="grid grid-stack items-center justify-items-center">
+                            <span class="row-start-1 col-start-1 opacity-0 select-none pointer-events-none whitespace-pre">${this.escapeHtml(spacerText)}</span>
+                            <span class="row-start-1 col-start-1 whitespace-nowrap transition-colors duration-75 ${node.isDone ? colorClass : ''}">${content}</span>
+                        </div>
+                        ${cursor}
+                    </div>
+                `;
+            }
+
+            renderPauseOverlay() {
+                return `
+                    <div class="absolute inset-0 bg-slate-900/80 z-40 flex flex-col items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
+                        <h2 class="text-4xl font-black text-white mb-8 tracking-widest">PAUSED</h2>
+                        <div class="flex flex-col gap-4 w-full max-w-xs">
+                            <button id="resumeBtn" class="flex items-center justify-center gap-3 px-8 py-4 bg-cyan-600 hover:bg-cyan-500 rounded-xl font-bold text-xl text-white transition-all shadow-lg">
+                                ${this.renderIcon('play')} Resume
+                            </button>
+                            <button id="quitBtn" class="flex items-center justify-center gap-3 px-8 py-4 bg-slate-700 hover:bg-slate-600 rounded-xl font-bold text-xl text-slate-300 transition-all border border-slate-600">
+                                ${this.renderIcon('log-out')} Quit
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            renderResults() {
+                const sortedMisses = Object.entries(this.missStats).sort(([, a], [, b]) => b - a);
+                
+                return `
+                    <div class="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-4 font-sans select-none">
+                        ${this.showStats ? this.renderStatsPanel() : ''}
+
+                        <div class="max-w-2xl w-full bg-slate-800 rounded-3xl p-8 border border-slate-700 shadow-2xl space-y-8 animate-in zoom-in-95 duration-300">
+                            <div class="text-center space-y-2">
+                                <h2 class="text-4xl font-bold text-white">Result</h2>
+                                <div class="text-6xl font-black ${this.settings.gameMode === 'legal' ? 'text-indigo-400' : 'text-cyan-400'}">${this.score.toLocaleString()} <span class="text-2xl text-slate-500">pts</span></div>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="bg-slate-900/50 p-4 rounded-xl flex items-center justify-between border border-slate-700">
+                                    <span class="text-slate-400 flex items-center gap-2">${this.renderIcon('trophy')} Max Combo</span>
+                                    <span class="text-2xl font-bold text-yellow-400">${this.maxCombo}</span>
+                                </div>
+                                <div class="bg-slate-900/50 p-4 rounded-xl flex items-center justify-between border border-slate-700">
+                                    <span class="text-slate-400 flex items-center gap-2">${this.renderIcon('alert-circle')} Total Misses</span>
+                                    <span class="text-2xl font-bold text-red-400">
+                                        ${Object.values(this.missStats).reduce((a, b) => a + b, 0)}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div class="space-y-3">
+                                <div class="flex justify-between items-center">
+                                    <h3 class="text-lg font-bold text-slate-300 flex items-center gap-2">
+                                        ${this.renderIcon('zap')} Weak Keys Analysis
+                                    </h3>
+                                    <button id="viewDetailsBtn" class="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-bold">
+                                        ${this.renderIcon('bar-chart-2')} View Details
+                                    </button>
+                                </div>
+                                ${sortedMisses.length > 0 ? `
+                                    <div class="grid grid-cols-5 gap-2">
+                                        ${sortedMisses.slice(0, 10).map(([key, count]) => `
+                                            <div class="flex flex-col items-center bg-red-900/20 border border-red-500/30 rounded-lg p-2">
+                                                <span class="text-2xl font-mono font-bold text-red-400 uppercase">${this.escapeHtml(key)}</span>
+                                                <span class="text-xs text-red-300">${count} miss</span>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                ` : `
+                                    <div class="text-green-400 bg-green-900/20 p-3 rounded-lg text-center border border-green-500/30">
+                                        Perfect Typing!
+                                    </div>
+                                `}
+                            </div>
+
+                            <div class="flex flex-col items-center gap-2 pt-4">
+                                <button id="retryBtn" class="flex items-center gap-2 px-8 py-3 rounded-xl font-bold transition-colors shadow-lg hover:shadow-cyan-500/25 ${this.settings.gameMode === 'legal' ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-cyan-600 hover:bg-cyan-500'}">
+                                    ${this.renderIcon('rotate-ccw')} もう一度挑戦
+                                </button>
+                                <div class="text-xs text-slate-500 font-mono">Press [SPACE] to Retry</div>
+                                
+                                <button id="backToMenuBtn" class="mt-2 text-sm text-slate-400 hover:text-white underline">
+                                    Back to Menu
+                                </button>
+                            </div>
+                        </div>
+                        <div class="absolute bottom-4 right-4 text-xs text-slate-600 font-mono select-none">
+                            © Tadashi Kotegawa
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        // Initialize the app when DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            new GameApp();
+        });
+    </script>
+</body>
+</html>
