@@ -1485,6 +1485,7 @@ const LEGAL_WORDS = [
                 this.focusKeys = this.loadFocusKeys();
                 
                 this.showSettings = false;
+                this.settingsJustOpened = false;
                 this.settingsScrollTop = 0;
                 this.showStats = false;
                 this.showKeyboardSelector = false;
@@ -1968,6 +1969,7 @@ const LEGAL_WORDS = [
                     if (nextSettingsPanel) {
                         nextSettingsPanel.scrollTop = this.settingsScrollTop;
                     }
+                    this.settingsJustOpened = false;
                 }
             }
 
@@ -1982,6 +1984,7 @@ const LEGAL_WORDS = [
                 const settingsBtn = document.getElementById('settingsBtn');
                 if (settingsBtn) settingsBtn.onclick = () => {
                     this.showSettings = true;
+                    this.settingsJustOpened = true;
                     this.settingsScrollTop = 0;
                     this.render();
                 };
@@ -2010,12 +2013,14 @@ const LEGAL_WORDS = [
                 const closeSettingsBtn = document.getElementById('closeSettingsBtn');
                 if (closeSettingsBtn) closeSettingsBtn.onclick = () => {
                     this.showSettings = false;
+                    this.settingsJustOpened = false;
                     this.render();
                 };
                 
                 const saveSettingsBtn = document.getElementById('saveSettingsBtn');
                 if (saveSettingsBtn) saveSettingsBtn.onclick = () => {
                     this.showSettings = false;
+                    this.settingsJustOpened = false;
                     this.render();
                 };
 
@@ -2324,7 +2329,7 @@ const LEGAL_WORDS = [
                     : '未選択（自動分析のみ）';
 
                 return `
-                    <div class="absolute inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200" style="background: rgba(6, 10, 20, 0.88);">
+                    <div class="absolute inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm ${this.settingsJustOpened ? 'animate-in fade-in duration-200' : ''}" style="background: rgba(6, 10, 20, 0.88);">
                         <div id="settingsPanel" class="settings-panel w-full max-w-xl relative max-h-[85vh] overflow-y-auto space-y-6">
                             <button id="closeSettingsBtn" class="absolute top-4 right-4 text-slate-500 hover:text-white">
                                 ${this.renderIcon('x')}
