@@ -1317,6 +1317,7 @@ const LEGAL_WORDS = [
                 this.focusKeys = this.loadFocusKeys();
                 
                 this.showSettings = false;
+                this.settingsScrollTop = 0;
                 this.showStats = false;
                 this.showKeyboardSelector = false;
                 this.showRanking = false;
@@ -1778,6 +1779,11 @@ const LEGAL_WORDS = [
             // --- Render Methods ---
             render() {
                 const app = document.getElementById('app');
+                const currentSettingsPanel = document.getElementById('settingsPanel');
+
+                if (currentSettingsPanel) {
+                    this.settingsScrollTop = currentSettingsPanel.scrollTop;
+                }
                 
                 if (this.gameState === 'menu') {
                     app.innerHTML = this.renderMenu();
@@ -1788,6 +1794,13 @@ const LEGAL_WORDS = [
                 }
                 
                 this.attachEventHandlers();
+
+                if (this.showSettings) {
+                    const nextSettingsPanel = document.getElementById('settingsPanel');
+                    if (nextSettingsPanel) {
+                        nextSettingsPanel.scrollTop = this.settingsScrollTop;
+                    }
+                }
             }
 
             attachEventHandlers() {
@@ -1801,6 +1814,7 @@ const LEGAL_WORDS = [
                 const settingsBtn = document.getElementById('settingsBtn');
                 if (settingsBtn) settingsBtn.onclick = () => {
                     this.showSettings = true;
+                    this.settingsScrollTop = 0;
                     this.render();
                 };
                 
@@ -2126,7 +2140,7 @@ const LEGAL_WORDS = [
             renderSettings() {
                 return `
                     <div class="absolute inset-0 bg-slate-900/90 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
-                        <div class="bg-slate-800 p-8 rounded-2xl border border-slate-700 w-full max-w-xl shadow-2xl space-y-6 relative max-h-[85vh] overflow-y-auto">
+                        <div id="settingsPanel" class="bg-slate-800 p-8 rounded-2xl border border-slate-700 w-full max-w-xl shadow-2xl space-y-6 relative max-h-[85vh] overflow-y-auto">
                             <button id="closeSettingsBtn" class="absolute top-4 right-4 text-slate-500 hover:text-white sticky top-0">
                                 ${this.renderIcon('x')}
                             </button>
