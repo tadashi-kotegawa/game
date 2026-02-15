@@ -1350,6 +1350,21 @@ const LEGAL_WORDS = [
                 localStorage.setItem('neoTypeFocusKeys', JSON.stringify(this.focusKeys));
             }
 
+            normalizeRankingNickname(value) {
+                return (value || '').trim().slice(0, 20);
+            }
+
+            persistRankingNickname(value) {
+                const normalized = this.normalizeRankingNickname(value);
+                this.rankingNickname = normalized;
+                if (normalized) {
+                    localStorage.setItem(RANKING_MODE_STORAGE_KEY, normalized);
+                } else {
+                    localStorage.removeItem(RANKING_MODE_STORAGE_KEY);
+                }
+                return normalized;
+            }
+
             setupEventListeners() {
                 this.keyDownHandler = (e) => this.handleKeyDown(e);
                 document.addEventListener('keydown', this.keyDownHandler);
@@ -1599,13 +1614,11 @@ const LEGAL_WORDS = [
             async saveScoreToRanking() {
                 if (this.isSavingRanking) return;
 
-                let nickname = (this.rankingNickname || '').trim();
+                let nickname = this.normalizeRankingNickname(this.rankingNickname);
                 if (!nickname) {
-                    const inputName = prompt('ランキング登録名を入力してください（初回登録後は変更できません）');
-                    nickname = inputName ? inputName.trim().slice(0, 20) : '';
+                    const inputName = prompt('ランキング登録名を入力してください（設定からいつでも変更できます）');
+                    nickname = this.persistRankingNickname(inputName);
                     if (!nickname) return;
-                    this.rankingNickname = nickname;
-                    localStorage.setItem(RANKING_MODE_STORAGE_KEY, nickname);
                 }
 
                 this.isSavingRanking = true;
@@ -1821,6 +1834,18 @@ const LEGAL_WORDS = [
                 const saveSettingsBtn = document.getElementById('saveSettingsBtn');
                 if (saveSettingsBtn) saveSettingsBtn.onclick = () => {
                     this.showSettings = false;
+                    this.render();
+                };
+
+                const saveRankingNicknameBtn = document.getElementById('saveRankingNicknameBtn');
+                if (saveRankingNicknameBtn) saveRankingNicknameBtn.onclick = () => {
+                    const input = document.getElementById('rankingNicknameInput');
+                    const nickname = this.persistRankingNickname(input ? input.value : '');
+                    if (!nickname) {
+                        alert('ランキング登録名を1文字以上入力してください。');
+                        return;
+                    }
+                    alert('ランキング登録名を保存しました。');
                     this.render();
                 };
                 
@@ -2231,6 +2256,19 @@ const LEGAL_WORDS = [
                                     <button id="realModeSwitch">
                                         ${this.renderSwitch(this.settings.realMode, 'bg-red-600')}
                                     </button>
+                                </div>
+                            </div>
+
+                            <div class="space-y-2">
+                                <label class="text-slate-400 text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+                                    ${this.renderIcon('trophy')} ランキング登録名
+                                </label>
+                                <div class="bg-slate-700/50 p-4 rounded-xl border border-slate-600 space-y-3">
+                                    <input id="rankingNicknameInput" type="text" maxlength="20" value="${this.escapeHtml(this.rankingNickname || '')}" placeholder="ランキングに表示する名前" class="w-full px-3 py-2 rounded-lg bg-slate-900/80 border border-slate-600 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                                    <div class="flex items-center justify-between gap-3 text-xs">
+                                        <span class="text-slate-400">ランキングモードで使う名前を変更できます</span>
+                                        <button id="saveRankingNicknameBtn" class="px-3 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-slate-900 font-bold">名前を保存</button>
+                                    </div>
                                 </div>
                             </div>
 
