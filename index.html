@@ -179,47 +179,6 @@
             width: 20px; height: 20px; border: none; border-radius: 999px; background: var(--settings-accent);
         }
 
-        .neo-app-bg {
-            background:
-                radial-gradient(circle at 15% 20%, rgba(20,184,166,0.14), transparent 35%),
-                radial-gradient(circle at 80% 10%, rgba(99,102,241,0.16), transparent 34%),
-                radial-gradient(circle at 50% 90%, rgba(236,72,153,0.12), transparent 40%),
-                #050a16;
-        }
-        .neo-shell {
-            background: linear-gradient(160deg, rgba(10,17,32,0.92), rgba(7,12,24,0.95));
-            border: 1px solid rgba(148, 163, 184, 0.18);
-            border-radius: 24px;
-            box-shadow: 0 22px 70px rgba(0,0,0,0.45);
-            backdrop-filter: blur(14px);
-        }
-        .neo-shell-soft {
-            background: rgba(15, 23, 42, 0.5);
-            border: 1px solid rgba(148, 163, 184, 0.2);
-            border-radius: 18px;
-        }
-        .neo-title {
-            text-shadow: 0 10px 34px rgba(20, 184, 166, 0.35);
-        }
-        .neo-chip {
-            border-radius: 999px;
-            border: 1px solid rgba(148, 163, 184, 0.3);
-            background: rgba(15, 23, 42, 0.55);
-            color: #cbd5e1;
-            padding: 7px 12px;
-            font-size: 12px;
-            font-weight: 700;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            transition: all 0.2s ease;
-        }
-        .neo-chip.interactive { cursor: pointer; }
-        .neo-chip.interactive:hover { border-color: rgba(45, 212, 191, 0.55); color: #e2e8f0; }
-        .neo-chip.active-cyan { border-color: rgba(34, 211, 238, 0.6); box-shadow: 0 0 0 1px rgba(34,211,238,0.25), 0 0 26px rgba(34,211,238,0.25); color: #a5f3fc; }
-        .neo-chip.active-violet { border-color: rgba(129, 140, 248, 0.64); box-shadow: 0 0 0 1px rgba(129,140,248,0.25), 0 0 26px rgba(129,140,248,0.25); color: #c7d2fe; }
-        .neo-chip.active-rose { border-color: rgba(251, 113, 133, 0.64); box-shadow: 0 0 0 1px rgba(251,113,133,0.28), 0 0 26px rgba(251,113,133,0.28); color: #fecdd3; }
-
         /* Layout utilities */
         .block { display: block; }
         .inline-block { display: inline-block; }
@@ -1962,18 +1921,6 @@ const LEGAL_WORDS = [
                 const rankingBtn = document.getElementById('rankingBtn');
                 if (rankingBtn) rankingBtn.onclick = () => this.openRankingModal();
 
-                const legalQuickToggleBtn = document.getElementById('legalQuickToggleBtn');
-                if (legalQuickToggleBtn) legalQuickToggleBtn.onclick = () => {
-                    this.settings.gameMode = this.settings.gameMode === 'legal' ? 'normal' : 'legal';
-                    this.render();
-                };
-
-                const realQuickToggleBtn = document.getElementById('realQuickToggleBtn');
-                if (realQuickToggleBtn) realQuickToggleBtn.onclick = () => {
-                    this.settings.realMode = !this.settings.realMode;
-                    this.render();
-                };
-
                 const closeRankingBtn = document.getElementById('closeRankingBtn');
                 if (closeRankingBtn) closeRankingBtn.onclick = () => this.closeRankingModal();
 
@@ -2007,6 +1954,7 @@ const LEGAL_WORDS = [
                         return;
                     }
                     alert('ランキング登録名を保存しました。');
+                    this.render();
                 };
                 
                 // Duration buttons
@@ -2185,7 +2133,7 @@ const LEGAL_WORDS = [
 
             renderRankingButton() {
                 return `
-                    <button id="rankingBtn" class="fixed top-6 left-0 z-10 px-4 py-2 rounded-xl neo-shell-soft text-amber-200 font-bold shadow-lg border border-amber-300/30 hover:border-amber-300 flex items-center gap-2 transition-colors" style="margin-left: 1rem;">
+                    <button id="rankingBtn" class="fixed top-6 left-0 z-10 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold shadow-lg border border-amber-300 flex items-center gap-2 transition-colors" style="margin-left: 1rem;">
                         ${this.renderIcon('trophy')} ランキング
                     </button>
                 `;
@@ -2194,7 +2142,7 @@ const LEGAL_WORDS = [
             renderRankingModal() {
                 return `
                     <div id="rankingOverlay" class="fixed inset-0 z-50 bg-slate-900/80 flex items-center justify-center p-4">
-                        <div class="w-full max-w-xl neo-shell shadow-2xl p-6">
+                        <div class="w-full max-w-xl bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl p-6">
                             <div class="flex items-center justify-between mb-4">
                                 <h3 class="text-2xl font-bold text-amber-300 flex items-center gap-2">${this.renderIcon('trophy')} オンラインランキング</h3>
                                 <div class="flex items-center gap-2">
@@ -2229,27 +2177,27 @@ const LEGAL_WORDS = [
 
             renderMenu() {
                 return `
-                    <div class="min-h-screen neo-app-bg text-white flex flex-col items-center justify-center p-4 font-sans select-none relative overflow-hidden">
+                    <div class="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-4 font-sans select-none relative overflow-hidden">
                         ${this.renderRankingButton()}
                         ${this.showKeyboardSelector ? this.renderKeyboardSelector() : ''}
                         ${this.showSettings ? this.renderSettings() : ''}
                         ${this.showStats ? this.renderStatsPanel() : ''}
                         ${this.showRanking ? this.renderRankingModal() : ''}
                         
-                        <button id="settingsBtn" class="absolute top-6 right-6 p-3 neo-shell-soft rounded-full text-slate-300 hover:text-cyan-300 transition-all border border-slate-600 hover:border-cyan-400 z-10">
+                        <button id="settingsBtn" class="absolute top-6 right-6 p-3 bg-slate-800 hover:bg-slate-700 rounded-full text-slate-400 hover:text-cyan-400 transition-all border border-slate-700 hover:border-cyan-400 z-10">
                             ${this.renderIcon('settings')}
                         </button>
 
-                        <div class="max-w-3xl w-full text-center space-y-8">
+                        <div class="max-w-md w-full text-center space-y-8">
                             <div class="space-y-2">
-                                <h1 class="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-teal-300 to-indigo-300 tracking-tighter neo-title">
+                                <h1 class="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-600 tracking-tighter filter drop-shadow-lg">
                                     NEO-TYPE
-                                    <span class="text-sm font-normal text-slate-400 block mt-2 tracking-widest">さよなら苦手キー</span>
+                                    <span class="text-sm font-normal text-slate-500 block mt-2 tracking-widest">さよなら苦手キー</span>
                                 </h1>
                             </div>
                             
-                            <div class="neo-shell p-6 md:p-8 space-y-5">
-                                <p class="text-sm text-slate-300 leading-relaxed text-left m-0">
+                            <div class="bg-slate-800/50 p-6 rounded-2xl border border-slate-700 backdrop-blur-sm shadow-xl space-y-4">
+                                <p class="mb-4 text-sm text-slate-300 leading-relaxed text-left">
                                     あなたが指定した苦手キーと過去のミス回数を学習、分析し、今のあなたに最適な問題を出し続け、最短ルートでのタイピング力向上をサポートします。
                                 </p>
                                 
@@ -2265,29 +2213,30 @@ const LEGAL_WORDS = [
                                     <div class="text-xs text-slate-500 font-mono">Press [SPACE] to Start</div>
                                 </div>
 
-                                <button id="statsBtn" class="w-full py-3 mt-2 neo-shell-soft rounded-xl font-bold text-slate-300 hover:text-white transition-all border border-slate-600 flex items-center justify-center gap-2">
+                                <button id="statsBtn" class="w-full py-3 mt-2 bg-slate-700/50 hover:bg-slate-700 rounded-xl font-bold text-slate-300 hover:text-white transition-all border border-slate-600 flex items-center justify-center gap-2">
                                     ${this.renderIcon('bar-chart-2')} 学習データ詳細を見る
                                 </button>
                             </div>
                             
-                            <div class="flex justify-center gap-3 flex-wrap">
-                                <span class="neo-chip">${this.renderIcon('clock')} ${this.settings.duration}s</span>
-                                <span class="neo-chip">${this.settings.sound ? this.renderIcon('volume-2') : this.renderIcon('volume-x')} ${this.settings.sound ? 'ON' : 'OFF'}</span>
-                                <span class="neo-chip ${this.settings.displayMode === 'ime' ? 'active-cyan' : ''}">
+                            <div class="text-xs text-slate-600 flex justify-center gap-4 flex-wrap">
+                                <span class="flex items-center gap-1">${this.renderIcon('clock')} ${this.settings.duration}s</span>
+                                <span class="flex items-center gap-1">
+                                    ${this.settings.sound ? this.renderIcon('volume-2') : this.renderIcon('volume-x')} ${this.settings.sound ? 'ON' : 'OFF'}
+                                </span>
+                                <span class="flex items-center gap-1 text-cyan-500">
                                     ${this.settings.displayMode === 'ime' ? this.renderIcon('languages') : ''}
                                     ${this.settings.displayMode === 'guide' ? this.renderIcon('eye') : ''}
                                     ${this.settings.displayMode === 'input' ? this.renderIcon('eye-off') : ''}
                                     ${this.settings.displayMode === 'ime' ? 'IME' : this.settings.displayMode === 'guide' ? 'Guide' : 'Input'}
                                 </span>
-                                <button id="legalQuickToggleBtn" class="neo-chip interactive ${this.settings.gameMode === 'legal' ? 'active-violet' : ''}">
-                                    ${this.renderIcon('scale')} LEGAL MODE
-                                </button>
-                                <button id="realQuickToggleBtn" class="neo-chip interactive ${this.settings.realMode ? 'active-rose' : ''}">
-                                    ${this.renderIcon('delete')} REAL MODE
-                                </button>
+                                <span class="flex items-center gap-1 ${this.settings.gameMode === 'legal' ? 'text-indigo-400 font-bold' : 'text-slate-500'}">
+                                    ${this.settings.gameMode === 'legal' ? this.renderIcon('scale') : this.renderIcon('keyboard')}
+                                    ${this.settings.gameMode === 'legal' ? 'Legal Mode' : 'Normal'}
+                                </span>
+                                ${this.settings.realMode ? `<span class="flex items-center gap-1 text-red-400 font-bold">${this.renderIcon('delete')} Real Mode</span>` : ''}
                             </div>
                         </div>
-                        <div class="absolute bottom-4 right-4 text-xs text-slate-500 font-mono select-none">
+                        <div class="absolute bottom-4 right-4 text-xs text-slate-600 font-mono select-none">
                             © Tadashi Kotegawa
                         </div>
                     </div>
@@ -2450,8 +2399,8 @@ const LEGAL_WORDS = [
                 const sortedStats = Object.entries(this.missStats).sort(([, a], [, b]) => b - a);
                 
                 return `
-                    <div class="absolute inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-200" style="background: rgba(6, 10, 20, 0.9);">
-                        <div class="neo-shell w-full max-w-2xl h-[80vh] flex flex-col shadow-2xl">
+                    <div class="absolute inset-0 bg-slate-900/95 z-50 flex items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-200">
+                        <div class="bg-slate-800 rounded-2xl border border-slate-700 w-full max-w-2xl h-[80vh] flex flex-col shadow-2xl">
                             <div class="p-6 border-b border-slate-700 flex justify-between items-center">
                                 <h2 class="text-2xl font-bold flex items-center gap-3">
                                     ${this.renderIcon('bar-chart-2')} 
@@ -2512,12 +2461,12 @@ const LEGAL_WORDS = [
                 const activeNodeIndex = this.currentWordData.nodes.findIndex(n => !n.isDone);
                 
                 return `
-                    <div class="min-h-screen neo-app-bg text-white flex flex-col font-sans select-none overflow-hidden relative">
+                    <div class="min-h-screen bg-slate-900 text-white flex flex-col font-sans select-none overflow-hidden relative">
                         ${this.renderRankingButton()}
                         ${this.showRanking ? this.renderRankingModal() : ''}
                         ${this.isPaused ? this.renderPauseOverlay() : ''}
 
-                        <div class="p-6 flex justify-between items-end border-b border-slate-700/50 bg-slate-900/45 backdrop-blur sticky top-0 z-10">
+                        <div class="p-6 flex justify-between items-end border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-10">
                             <div class="space-y-1">
                                 <div class="text-sm text-slate-400 font-bold tracking-wider">SCORE</div>
                                 <div class="text-4xl font-mono font-bold leading-none ${this.settings.gameMode === 'legal' ? 'text-indigo-400' : 'text-cyan-400'}">${this.score.toLocaleString()}</div>
@@ -2558,7 +2507,7 @@ const LEGAL_WORDS = [
                                 </div>
                             ` : ''}
 
-                            <div class="w-full max-w-4xl neo-shell p-12 text-center transition-colors relative ${this.settings.gameMode === 'legal' ? 'shadow-indigo-900/20' : ''} ${this.shake ? 'animate-shake' : ''}">
+                            <div class="w-full max-w-4xl bg-slate-800/50 rounded-3xl border p-12 text-center backdrop-blur-sm shadow-[0_0_50px_rgba(0,0,0,0.3)] transition-colors relative ${this.settings.gameMode === 'legal' ? 'border-indigo-900/50 shadow-indigo-900/20' : 'border-slate-700'} ${this.shake ? 'animate-shake' : ''}">
                                 
                                 ${this.currentWordData.isWeakMode ? `
                                     <div class="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-yellow-600/90 text-white px-6 py-1 rounded-full text-sm font-bold shadow-lg border border-yellow-400/50 flex items-center gap-2 animate-pulse">
@@ -2584,7 +2533,7 @@ const LEGAL_WORDS = [
                                 </div>
                             </div>
 
-                            <div class="mt-12 text-slate-400 flex items-center gap-2 neo-chip">
+                            <div class="mt-12 text-slate-500 flex items-center gap-2">
                                 ${this.settings.gameMode === 'legal' ? this.renderIcon('book-open') : this.renderIcon('keyboard')}
                                 <span>
                                     ${this.settings.gameMode === 'legal' ? 'Legal Terms Mode Active' : 'Type keys to play'} (Flexible input supported)
@@ -2686,12 +2635,12 @@ const LEGAL_WORDS = [
                 const sortedMisses = Object.entries(this.missStats).sort(([, a], [, b]) => b - a);
                 
                 return `
-                    <div class="min-h-screen neo-app-bg text-white flex flex-col items-center justify-center p-4 font-sans select-none relative">
+                    <div class="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-4 font-sans select-none relative">
                         ${this.renderRankingButton()}
                         ${this.showStats ? this.renderStatsPanel() : ''}
                         ${this.showRanking ? this.renderRankingModal() : ''}
 
-                        <div class="max-w-2xl w-full neo-shell p-8 shadow-2xl space-y-8 animate-in zoom-in-95 duration-300">
+                        <div class="max-w-2xl w-full bg-slate-800 rounded-3xl p-8 border border-slate-700 shadow-2xl space-y-8 animate-in zoom-in-95 duration-300">
                             <div class="text-center space-y-2">
                                 <h2 class="text-4xl font-bold text-white">Result</h2>
                                 <div class="text-6xl font-black ${this.settings.gameMode === 'legal' ? 'text-indigo-400' : 'text-cyan-400'}">${this.score.toLocaleString()} <span class="text-2xl text-slate-500">pts</span></div>
