@@ -448,6 +448,18 @@
         const db = getFirestore(app);
         const INLINE_ICONS = window.INLINE_ICONS || {};
 
+        const RANKING_MODE_STORAGE_KEY = 'neoTypeRankingNickname';
+
+        const RANKING_MODE_FIXED_SETTINGS = {
+            duration: 60,
+            gameMode: 'normal',
+            realMode: true,
+            weakKeyRate: 0,
+            ignoreVowels: false
+        };
+
+        const cloneSettings = (settings) => JSON.parse(JSON.stringify(settings));
+
         // --- Constants: KANA_MAP ---
         const KANA_MAP = {
             'あ': ['a'], 'い': ['i', 'yi'], 'う': ['u', 'wu', 'whu'], 'え': ['e'], 'お': ['o'],
@@ -1312,6 +1324,9 @@ const LEGAL_WORDS = [
                 this.rankingLoading = false;
                 this.rankingError = '';
                 this.isSavingRanking = false;
+                this.currentRunMode = 'normal';
+                this.pendingSettingsRestore = null;
+                this.rankingNickname = localStorage.getItem(RANKING_MODE_STORAGE_KEY) || '';
                 
                 this.setupEventListeners();
                 this.render();
@@ -1356,7 +1371,7 @@ const LEGAL_WORDS = [
                 if (e.code === 'Space') {
                     if (this.gameState === 'menu' || this.gameState === 'finished') {
                         e.preventDefault();
-                        this.startGame();
+                        this.startGame('normal');
                         return;
                     }
                     if (this.gameState === 'playing') {
@@ -1518,7 +1533,31 @@ const LEGAL_WORDS = [
                 }, 600);
             }
 
-            startGame() {
+            applyRankingModeSettings() {
+                this.pendingSettingsRestore = cloneSettings(this.settings);
+                this.settings = {
+                    ...this.settings,
+                    ...RANKING_MODE_FIXED_SETTINGS,
+                    displayMode: this.pendingSettingsRestore.displayMode,
+                    sound: this.pendingSettingsRestore.sound
+                };
+            }
+
+            restoreSettingsIfNeeded() {
+                if (!this.pendingSettingsRestore) return;
+                this.settings = this.pendingSettingsRestore;
+                this.pendingSettingsRestore = null;
+            }
+
+            startGame(mode = 'normal') {
+                this.currentRunMode = mode;
+
+                if (mode === 'ranking') {
+                    this.applyRankingModeSettings();
+                } else {
+                    this.restoreSettingsIfNeeded();
+                }
+
                 if (this.settings.sound) soundEngine.init();
 
                 this.gameState = 'playing';
@@ -1553,21 +1592,28 @@ const LEGAL_WORDS = [
                 if (this.settings.sound) soundEngine.playSuccess();
                 this.saveMissStats();
                 this.render();
-                this.saveScoreToRanking();
+                if (this.currentRunMode === 'ranking') {
+                    this.saveScoreToRanking();
+                }
             }
-
-
             async saveScoreToRanking() {
                 if (this.isSavingRanking) return;
 
-                const name = prompt('ランキング登録名を入力してください（未入力でスキップ）');
-                if (!name || !name.trim()) return;
+                let nickname = (this.rankingNickname || '').trim();
+                if (!nickname) {
+                    const inputName = prompt('ランキング登録名を入力してください（初回登録後は変更できません）');
+                    nickname = inputName ? inputName.trim().slice(0, 20) : '';
+                    if (!nickname) return;
+                    this.rankingNickname = nickname;
+                    localStorage.setItem(RANKING_MODE_STORAGE_KEY, nickname);
+                }
 
                 this.isSavingRanking = true;
 
                 try {
                     await addDoc(collection(db, 'rankings'), {
-                        name: name.trim().slice(0, 20),
+                        mode: 'ranking',
+                        name: nickname,
                         score: this.score,
                         createdAt: serverTimestamp()
                     });
@@ -1586,13 +1632,32 @@ const LEGAL_WORDS = [
                 this.render();
 
                 try {
-                    const rankingsQuery = query(collection(db, 'rankings'), orderBy('score', 'desc'), limit(10));
+                    const rankingsQuery = query(
+                        collection(db, 'rankings'),
+                        orderBy('score', 'desc'),
+                        limit(200)
+                    );
                     const snapshot = await getDocs(rankingsQuery);
-                    this.rankings = snapshot.docs.map((doc, index) => ({
-                        id: doc.id,
-                        rank: index + 1,
-                        ...doc.data()
-                    }));
+                    const uniqueByName = new Map();
+
+                    snapshot.docs.forEach((docSnap) => {
+                        const data = docSnap.data();
+                        if (data.mode !== 'ranking') return;
+
+                        const key = (data.name || '').trim().toLowerCase();
+                        if (!key || uniqueByName.has(key)) return;
+                        uniqueByName.set(key, {
+                            id: docSnap.id,
+                            ...data
+                        });
+                    });
+
+                    this.rankings = Array.from(uniqueByName.values())
+                        .slice(0, 10)
+                        .map((item, index) => ({
+                            ...item,
+                            rank: index + 1
+                        }));
                 } catch (error) {
                     console.error('Failed to fetch rankings:', error);
                     this.rankingError = 'ランキングの取得に失敗しました。時間をおいて再度お試しください。';
@@ -1626,8 +1691,9 @@ const LEGAL_WORDS = [
                     autoWeakKeys = autoWeakKeys.filter(k => !vowels.includes(k));
                 }
 
-                const manualFocusKeys = this.focusKeys || [];
-                let targetKeys = Array.from(new Set([...autoWeakKeys, ...manualFocusKeys]));
+                const isRankingMode = this.currentRunMode === 'ranking';
+                const manualFocusKeys = isRankingMode ? [] : (this.focusKeys || []);
+                let targetKeys = isRankingMode ? [] : Array.from(new Set([...autoWeakKeys, ...manualFocusKeys]));
 
                 if (this.settings.ignoreVowels) {
                     const vowels = ['a', 'i', 'u', 'e', 'o', '-'];
@@ -1714,7 +1780,10 @@ const LEGAL_WORDS = [
             attachEventHandlers() {
                 // Menu buttons
                 const startBtn = document.getElementById('startBtn');
-                if (startBtn) startBtn.onclick = () => this.startGame();
+                if (startBtn) startBtn.onclick = () => this.startGame('normal');
+
+                const rankingStartBtn = document.getElementById('rankingStartBtn');
+                if (rankingStartBtn) rankingStartBtn.onclick = () => this.startGame('ranking');
                 
                 const settingsBtn = document.getElementById('settingsBtn');
                 if (settingsBtn) settingsBtn.onclick = () => {
@@ -1887,16 +1956,20 @@ const LEGAL_WORDS = [
                 if (quitBtn) quitBtn.onclick = () => {
                     this.gameState = 'menu';
                     if (this.timerInterval) clearInterval(this.timerInterval);
+                    this.currentRunMode = 'normal';
+                    this.restoreSettingsIfNeeded();
                     this.render();
                 };
                 
                 // Results buttons
                 const retryBtn = document.getElementById('retryBtn');
-                if (retryBtn) retryBtn.onclick = () => this.startGame();
+                if (retryBtn) retryBtn.onclick = () => this.startGame(this.currentRunMode);
                 
                 const backToMenuBtn = document.getElementById('backToMenuBtn');
                 if (backToMenuBtn) backToMenuBtn.onclick = () => {
                     this.gameState = 'menu';
+                    this.currentRunMode = 'normal';
+                    this.restoreSettingsIfNeeded();
                     this.render();
                 };
             }
@@ -1988,6 +2061,9 @@ const LEGAL_WORDS = [
                                         <span class="relative z-10 flex items-center justify-center gap-2">
                                             ${this.settings.gameMode === 'legal' ? this.renderIcon('scale') : this.renderIcon('play')} START
                                         </span>
+                                    </button>
+                                    <button id="rankingStartBtn" class="w-full px-8 py-3 rounded-xl font-bold text-lg bg-amber-600 hover:bg-amber-500 text-slate-900 transition-all shadow-[0_0_20px_rgba(245,158,11,0.35)]">
+                                        ${this.renderIcon('trophy')} RANKING MODE START
                                     </button>
                                     <div class="text-xs text-slate-500 font-mono">Press [SPACE] to Start</div>
                                 </div>
