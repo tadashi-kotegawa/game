@@ -609,7 +609,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, getDocs, query, orderBy, limit, serverTimestamp, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, getDocs, query, where, orderBy, limit, serverTimestamp, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
         import { WEEKLY_SETTINGS_DOC, normalizeWeeklyRankingSettings, createDefaultWeeklyRankingSettings as getDefaultWeeklyRankingSettings } from "./weekly-settings.js";
 
         const firebaseConfig = {
@@ -1889,8 +1889,14 @@ const LEGAL_WORDS = [
                 await authReadyPromise;
 
                 try {
+                    const rankingConstraints = [where('mode', '==', 'ranking')];
+                    if (this.weeklyRankingSettings.weekKey) {
+                        rankingConstraints.push(where('weekKey', '==', this.weeklyRankingSettings.weekKey));
+                    }
+
                     const rankingsQuery = query(
                         collection(db, 'rankings'),
+                        ...rankingConstraints,
                         orderBy('score', 'desc'),
                         limit(200)
                     );
@@ -1899,8 +1905,6 @@ const LEGAL_WORDS = [
 
                     snapshot.docs.forEach((docSnap) => {
                         const data = docSnap.data();
-                        if (data.mode !== 'ranking') return;
-                        if ((data.weekKey || '') !== this.weeklyRankingSettings.weekKey) return;
 
                         const key = (data.name || '').trim().toLowerCase();
                         if (!key || uniqueByName.has(key)) return;
