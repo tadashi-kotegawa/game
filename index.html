@@ -184,6 +184,13 @@
             background: radial-gradient(circle at 20% -10%, rgba(20, 184, 166, 0.14), transparent 45%), var(--settings-bg);
             color: var(--settings-text);
         }
+        .ranking-theme {
+            background: radial-gradient(circle at 20% -10%, rgba(250, 204, 21, 0.26), transparent 50%), radial-gradient(circle at 85% 10%, rgba(245, 158, 11, 0.22), transparent 45%), #1f1808;
+        }
+        .ranking-theme .app-panel { border-color: rgba(250, 204, 21, 0.38); }
+        .life-hearts { display: inline-flex; align-items: center; gap: 4px; }
+        .life-heart { width: 20px; height: 20px; color: #f43f5e; filter: drop-shadow(0 0 6px rgba(244,63,94,0.35)); }
+        .life-heart.empty { color: rgba(255,255,255,0.28); filter: none; }
         .app-panel {
             background: var(--settings-panel);
             border-radius: calc(var(--settings-radius) + 6px);
@@ -593,7 +600,8 @@
             'book-open': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>',
             'scale': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"></path><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"></path><path d="M7 21h10"></path><path d="M12 3v18"></path><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"></path></svg>',
             'languages': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 8 6 6"></path><path d="m4 14 6-6 2-3"></path><path d="M2 5h12"></path><path d="M7 2h1"></path><path d="m22 22-5-10-5 10"></path><path d="M14 18h6"></path></svg>',
-            'delete': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 5H9l-7 7 7 7h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Z"></path><line x1="18" y1="9" x2="12" y2="15"></line><line x1="12" y1="9" x2="18" y2="15"></line></svg>'
+            'delete': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 5H9l-7 7 7 7h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Z"></path><line x1="18" y1="9" x2="12" y2="15"></line><line x1="12" y1="9" x2="18" y2="15"></line></svg>',
+            'heart': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>'
         };
     </script>
     <div id="app"></div>
@@ -601,6 +609,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
         import { getFirestore, collection, addDoc, getDocs, query, orderBy, limit, serverTimestamp, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
+        import { WEEKLY_SETTINGS_DOC, normalizeWeeklyRankingSettings, createDefaultWeeklyRankingSettings as getDefaultWeeklyRankingSettings } from "./weekly-settings.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCYY4MugI7KvfK4o-UNg4NWLnl5ZVIs6s0",
@@ -617,31 +626,6 @@
         const INLINE_ICONS = window.INLINE_ICONS || {};
 
         const RANKING_MODE_STORAGE_KEY = 'neoTypeRankingNickname';
-        const WEEKLY_SETTINGS_DOC = ['rankingSettings', 'weeklyCurrent'];
-
-        const DEFAULT_WEEKLY_RANKING_SETTINGS = {
-            duration: 60,
-            gameMode: 'normal',
-            realMode: true,
-            lives: 3,
-            weakKeyRate: 0,
-            ignoreVowels: false
-        };
-
-        const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
-
-        const normalizeWeeklyRankingSettings = (raw = {}) => {
-            const duration = Number(raw.duration);
-            const lives = Number(raw.lives);
-            return {
-                ...DEFAULT_WEEKLY_RANKING_SETTINGS,
-                duration: Number.isFinite(duration) ? clamp(Math.round(duration), 30, 300) : DEFAULT_WEEKLY_RANKING_SETTINGS.duration,
-                lives: Number.isFinite(lives) ? clamp(Math.round(lives), 1, 10) : DEFAULT_WEEKLY_RANKING_SETTINGS.lives,
-                gameMode: raw.gameMode === 'legal' ? 'legal' : 'normal',
-                realMode: Boolean(raw.realMode)
-            };
-        };
-
         const cloneSettings = (settings) => JSON.parse(JSON.stringify(settings));
 
         // --- Constants: KANA_MAP ---
@@ -1513,8 +1497,13 @@ const LEGAL_WORDS = [
                 this.currentRunMode = 'normal';
                 this.pendingSettingsRestore = null;
                 this.rankingNickname = localStorage.getItem(RANKING_MODE_STORAGE_KEY) || '';
-                this.lastSubmittedRanking = this.loadLastSubmittedRanking();
-                
+
+                this.weeklyRankingSettings = this.createDefaultWeeklyRankingSettings();
+                this.weeklySettingsLoading = false;
+                this.weeklySettingsError = '';
+                this.rankingLivesLeft = this.weeklyRankingSettings.lives;
+                this.currentWordMissed = false;
+
                 this.setupEventListeners();
                 this.fetchWeeklyRankingSettings();
                 this.render();
@@ -1554,17 +1543,7 @@ const LEGAL_WORDS = [
             }
 
             createDefaultWeeklyRankingSettings() {
-                const now = new Date();
-                const year = now.getFullYear();
-                const oneJan = new Date(year, 0, 1);
-                const week = Math.ceil((((now - oneJan) / 86400000) + oneJan.getDay() + 1) / 7);
-                const weekKey = `${year}-W${String(week).padStart(2, '0')}`;
-
-                return {
-                    ...DEFAULT_WEEKLY_RANKING_SETTINGS,
-                    weekKey,
-                    weekLabel: `${year}年 第${week}週`
-                };
+                return getDefaultWeeklyRankingSettings();
             }
 
             applyWeeklySettings(rawSettings = {}) {
@@ -1762,7 +1741,8 @@ const LEGAL_WORDS = [
                         this.missStats[targetChar] = (this.missStats[targetChar] || 0) + 1;
                     }
 
-                    if (this.currentRunMode === 'ranking') {
+                    if (this.currentRunMode === 'ranking' && !this.currentWordMissed) {
+                        this.currentWordMissed = true;
                         this.rankingLivesLeft = Math.max(0, (this.rankingLivesLeft ?? this.settings.lives) - 1);
                         if (this.rankingLivesLeft <= 0) {
                             this.endGame();
@@ -1811,10 +1791,11 @@ const LEGAL_WORDS = [
                 this.pendingSettingsRestore = null;
             }
 
-            startGame(mode = 'normal') {
+            async startGame(mode = 'normal') {
                 this.currentRunMode = mode;
 
                 if (mode === 'ranking') {
+                    await this.fetchWeeklyRankingSettings();
                     this.applyRankingModeSettings();
                 } else {
                     this.restoreSettingsIfNeeded();
@@ -1947,6 +1928,7 @@ const LEGAL_WORDS = [
             }
 
             pickNextWord() {
+                this.currentWordMissed = false;
                 let autoWeakKeys = Object.entries(this.missStats)
                     .sort(([, a], [, b]) => b - a)
                     .slice(0, 5)
@@ -2280,6 +2262,15 @@ const LEGAL_WORDS = [
                     </div>
                 `;
             }
+            renderLivesHearts(totalLives, remainingLives) {
+                const total = Math.max(0, Number(totalLives) || 0);
+                const remaining = Math.max(0, Number(remainingLives) || 0);
+                return Array.from({ length: total }).map((_, index) => {
+                    const empty = index >= remaining;
+                    return `<span class="life-heart ${empty ? 'empty' : ''}">${this.renderIcon('heart')}</span>`;
+                }).join('');
+            }
+
 
             renderSettingRow(title, description, controlHtml) {
                 return `
@@ -2346,7 +2337,7 @@ const LEGAL_WORDS = [
 
             renderMenu() {
                 return `
-                    <div class="app-shell flex flex-col items-center justify-center p-4 font-sans select-none relative overflow-hidden">
+                    <div class="app-shell ${this.currentRunMode === 'ranking' ? 'ranking-theme' : ''} flex flex-col items-center justify-center p-4 font-sans select-none relative overflow-hidden">
                         ${this.renderRankingButton()}
                         ${this.showKeyboardSelector ? this.renderKeyboardSelector() : ''}
                         ${this.showSettings ? this.renderSettings() : ''}
@@ -2631,7 +2622,7 @@ const LEGAL_WORDS = [
                 const activeNodeIndex = this.currentWordData.nodes.findIndex(n => !n.isDone);
                 
                 return `
-                    <div class="app-shell flex flex-col font-sans select-none overflow-hidden relative">
+                    <div class="app-shell ${this.currentRunMode === 'ranking' ? 'ranking-theme' : ''} flex flex-col font-sans select-none overflow-hidden relative">
                         ${this.renderRankingButton()}
                         ${this.showRanking ? this.renderRankingModal() : ''}
                         ${this.isPaused ? this.renderPauseOverlay() : ''}
@@ -2648,7 +2639,7 @@ const LEGAL_WORDS = [
                                         TIME LIMIT
                                         ${this.settings.gameMode === 'legal' ? `<span class="bg-indigo-900 text-indigo-300 px-2 rounded-full text-[10px] font-bold border border-indigo-700 flex items-center gap-1">${this.renderIcon('scale')} LEGAL MODE</span>` : ''}
                                         ${this.settings.realMode ? `<span class="bg-red-900 text-red-300 px-2 rounded-full text-[10px] font-bold border border-red-700 flex items-center gap-1">${this.renderIcon('delete')} REAL MODE</span>` : ''}
-                                        ${this.currentRunMode === 'ranking' ? `<span class="bg-amber-900 text-amber-300 px-2 rounded-full text-[10px] font-bold border border-amber-700">LIFE ${this.rankingLivesLeft}</span>` : ''}
+                                        ${this.currentRunMode === 'ranking' ? `<span class="inline-flex items-center gap-2 bg-amber-950/70 text-amber-200 px-2 py-1 rounded-full text-[10px] font-bold border border-amber-600/70"><span>LIFE</span><span class="life-hearts">${this.renderLivesHearts(this.settings.lives, this.rankingLivesLeft)}</span></span>` : ''}
                                     </span>
                                     <span class="${this.timeLeft < 10 ? 'text-red-500 animate-pulse' : ''}">${this.timeLeft}s</span>
                                 </div>

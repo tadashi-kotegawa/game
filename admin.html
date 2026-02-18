@@ -86,13 +86,17 @@
 
     <form id="weeklyForm" class="grid">
       <div class="row">
-        <label for="weekKey">週キー（例: 2026-W08）</label>
-        <input id="weekKey" required maxlength="20" />
+        <label for="weekKey">ランキングID（空なら自動。例: 2026-W08）</label>
+        <input id="weekKey" maxlength="20" placeholder="空欄なら自動" />
       </div>
       <div class="row">
-        <label for="weekLabel">表示名（例: 2026年 第8週）</label>
-        <input id="weekLabel" required maxlength="40" />
+        <label for="weekLabel">表示名（例: 今週ランキング）</label>
+        <input id="weekLabel" required maxlength="40" placeholder="今週ランキング" />
       </div>
+      <div class="btns" style="margin-top: 4px;">
+        <button type="button" id="setCurrentWeekBtn" class="secondary">今週を自動セット</button>
+      </div>
+      <p class="muted" style="margin:0;">迷ったら「今週を自動セット」を押して保存でOKです。</p>
       <div class="row">
         <label for="gameMode">ゲームモード</label>
         <select id="gameMode">
@@ -132,6 +136,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
     import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
+    import { WEEKLY_SETTINGS_DOC, normalizeWeeklyRankingSettings, getCurrentWeekMeta } from "./weekly-settings.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCYY4MugI7KvfK4o-UNg4NWLnl5ZVIs6s0",
@@ -146,36 +151,6 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    const WEEKLY_SETTINGS_DOC = ['rankingSettings', 'weeklyCurrent'];
-    const DEFAULT_WEEKLY_RANKING_SETTINGS = {
-      duration: 60,
-      gameMode: 'normal',
-      realMode: true,
-      lives: 3,
-      weakKeyRate: 0,
-      ignoreVowels: false
-    };
-
-    const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
-    const normalizeWeeklyRankingSettings = (raw = {}) => {
-      const duration = Number(raw.duration);
-      const lives = Number(raw.lives);
-      return {
-        ...DEFAULT_WEEKLY_RANKING_SETTINGS,
-        duration: Number.isFinite(duration) ? clamp(Math.round(duration), 30, 300) : DEFAULT_WEEKLY_RANKING_SETTINGS.duration,
-        lives: Number.isFinite(lives) ? clamp(Math.round(lives), 1, 10) : DEFAULT_WEEKLY_RANKING_SETTINGS.lives,
-        gameMode: raw.gameMode === 'legal' ? 'legal' : 'normal',
-        realMode: Boolean(raw.realMode)
-      };
-    };
-
-    const weekOfYear = () => {
-      const now = new Date();
-      const year = now.getFullYear();
-      const oneJan = new Date(year, 0, 1);
-      const week = Math.ceil((((now - oneJan) / 86400000) + oneJan.getDay() + 1) / 7);
-      return { weekKey: `${year}-W${String(week).padStart(2, '0')}`, weekLabel: `${year}年 第${week}週` };
-    };
 
     const els = {
       form: document.getElementById('weeklyForm'),
@@ -186,6 +161,7 @@
       lives: document.getElementById('lives'),
       realMode: document.getElementById('realMode'),
       reloadBtn: document.getElementById('reloadBtn'),
+      setCurrentWeekBtn: document.getElementById('setCurrentWeekBtn'),
       saveBtn: document.getElementById('saveBtn'),
       status: document.getElementById('status')
     };
@@ -196,10 +172,10 @@
     };
 
     const fillForm = (settings) => {
-      const defaults = weekOfYear();
+      const defaults = getCurrentWeekMeta();
       const normalized = normalizeWeeklyRankingSettings(settings);
       els.weekKey.value = (settings.weekKey || defaults.weekKey).toString().trim();
-      els.weekLabel.value = (settings.weekLabel || defaults.weekLabel).toString().trim();
+      els.weekLabel.value = (settings.weekLabel || '今週ランキング').toString().trim();
       els.gameMode.value = normalized.gameMode;
       els.duration.value = normalized.duration;
       els.lives.value = normalized.lives;
@@ -230,9 +206,13 @@
         realMode: els.realMode.value === 'true'
       };
 
-      if (!draft.weekKey || !draft.weekLabel) {
-        setStatus('週キーと表示名は必須です。', 'err');
+      if (!draft.weekLabel) {
+        setStatus('表示名は必須です。', 'err');
         return;
+      }
+
+      if (!draft.weekKey) {
+        draft.weekKey = getCurrentWeekMeta().weekKey;
       }
 
       const normalized = normalizeWeeklyRankingSettings(draft);
@@ -255,6 +235,13 @@
       } finally {
         els.saveBtn.disabled = false;
       }
+    };
+
+    els.setCurrentWeekBtn.onclick = () => {
+      const current = getCurrentWeekMeta();
+      els.weekKey.value = current.weekKey;
+      if (!els.weekLabel.value.trim()) els.weekLabel.value = '今週ランキング';
+      setStatus(`自動セット: ${current.weekKey}`, 'ok');
     };
 
     els.reloadBtn.onclick = fetchSettings;
