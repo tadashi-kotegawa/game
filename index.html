@@ -609,6 +609,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
         import { getFirestore, collection, addDoc, getDocs, query, orderBy, limit, serverTimestamp, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
+        import { WEEKLY_SETTINGS_DOC, normalizeWeeklyRankingSettings, createDefaultWeeklyRankingSettings as getDefaultWeeklyRankingSettings } from "./weekly-settings.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCYY4MugI7KvfK4o-UNg4NWLnl5ZVIs6s0",
@@ -625,31 +626,6 @@
         const INLINE_ICONS = window.INLINE_ICONS || {};
 
         const RANKING_MODE_STORAGE_KEY = 'neoTypeRankingNickname';
-        const WEEKLY_SETTINGS_DOC = ['rankingSettings', 'weeklyCurrent'];
-
-        const DEFAULT_WEEKLY_RANKING_SETTINGS = {
-            duration: 60,
-            gameMode: 'normal',
-            realMode: true,
-            lives: 3,
-            weakKeyRate: 0,
-            ignoreVowels: false
-        };
-
-        const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
-
-        const normalizeWeeklyRankingSettings = (raw = {}) => {
-            const duration = Number(raw.duration);
-            const lives = Number(raw.lives);
-            return {
-                ...DEFAULT_WEEKLY_RANKING_SETTINGS,
-                duration: Number.isFinite(duration) ? clamp(Math.round(duration), 30, 300) : DEFAULT_WEEKLY_RANKING_SETTINGS.duration,
-                lives: Number.isFinite(lives) ? clamp(Math.round(lives), 1, 10) : DEFAULT_WEEKLY_RANKING_SETTINGS.lives,
-                gameMode: raw.gameMode === 'legal' ? 'legal' : 'normal',
-                realMode: Boolean(raw.realMode)
-            };
-        };
-
         const cloneSettings = (settings) => JSON.parse(JSON.stringify(settings));
 
         // --- Constants: KANA_MAP ---
@@ -1567,17 +1543,7 @@ const LEGAL_WORDS = [
             }
 
             createDefaultWeeklyRankingSettings() {
-                const now = new Date();
-                const year = now.getFullYear();
-                const oneJan = new Date(year, 0, 1);
-                const week = Math.ceil((((now - oneJan) / 86400000) + oneJan.getDay() + 1) / 7);
-                const weekKey = `${year}-W${String(week).padStart(2, '0')}`;
-
-                return {
-                    ...DEFAULT_WEEKLY_RANKING_SETTINGS,
-                    weekKey,
-                    weekLabel: `${year}年 第${week}週`
-                };
+                return getDefaultWeeklyRankingSettings();
             }
 
             applyWeeklySettings(rawSettings = {}) {
