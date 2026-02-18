@@ -1513,12 +1513,8 @@ const LEGAL_WORDS = [
                 this.currentRunMode = 'normal';
                 this.pendingSettingsRestore = null;
                 this.rankingNickname = localStorage.getItem(RANKING_MODE_STORAGE_KEY) || '';
-
-                this.weeklyRankingSettings = this.createDefaultWeeklyRankingSettings();
-                this.weeklySettingsLoading = false;
-                this.weeklySettingsError = '';
-                this.rankingLivesLeft = this.weeklyRankingSettings.lives;
-
+                this.lastSubmittedRanking = this.loadLastSubmittedRanking();
+                
                 this.setupEventListeners();
                 this.fetchWeeklyRankingSettings();
                 this.render();
@@ -1884,6 +1880,7 @@ const LEGAL_WORDS = [
                         weekLabel: this.weeklyRankingSettings.weekLabel,
                         createdAt: serverTimestamp()
                     });
+                    this.setLastSubmittedRanking(nickname, this.score);
                 } catch (error) {
                     console.error('Failed to save ranking score:', error);
                     alert('ランキング保存に失敗しました。ネットワーク状況を確認して再度お試しください。');
@@ -2328,15 +2325,18 @@ const LEGAL_WORDS = [
                                 <div class="text-center rounded-lg py-8" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(148,163,184,0.25); color: var(--settings-text-muted);">まだスコアが登録されていません。</div>
                             ` : `
                                 <div class="space-y-2 overflow-y-auto pr-1" style="max-height: 60vh;">
-                                    ${this.rankings.map((item) => `
-                                        <div class="flex items-center justify-between rounded-lg px-4 py-3" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(148,163,184,0.2);">
+                                    ${this.rankings.map((item) => {
+                                        const isPlayerEntry = this.isPlayerRankingEntry(item);
+                                        return `
+                                        <div class="flex items-center justify-between rounded-lg px-4 py-3" style="background: ${isPlayerEntry ? 'rgba(45,212,191,0.16)' : 'rgba(255,255,255,0.04)'}; border: 1px solid ${isPlayerEntry ? 'rgba(45,212,191,0.65)' : 'rgba(148,163,184,0.2)'}; box-shadow: ${isPlayerEntry ? '0 0 0 1px rgba(45,212,191,0.22), 0 0 20px rgba(45,212,191,0.2)' : 'none'};">
                                             <div class="flex items-center gap-3">
-                                                <span class="font-black w-12" style="color: #facc15;">#${item.rank}</span>
-                                                <span class="font-bold" style="color: var(--settings-text);">${this.escapeHtml(item.name || 'NO NAME')}</span>
+                                                <span class="font-black w-12" style="color: ${isPlayerEntry ? '#5eead4' : '#facc15'};">#${item.rank}</span>
+                                                <span class="font-bold" style="color: ${isPlayerEntry ? '#99f6e4' : 'var(--settings-text)'};">${this.escapeHtml(item.name || 'NO NAME')}</span>
                                             </div>
-                                            <span class="font-mono font-bold" style="color: #67e8f9;">${Number(item.score || 0).toLocaleString()} pts</span>
+                                            <span class="font-mono font-bold" style="color: ${isPlayerEntry ? '#2dd4bf' : '#67e8f9'};">${Number(item.score || 0).toLocaleString()} pts</span>
                                         </div>
-                                    `).join('')}
+                                    `;
+                                    }).join('')}
                                 </div>
                             `}
                         </div>
