@@ -135,6 +135,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
+    import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js";
     import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
     import { WEEKLY_SETTINGS_DOC, normalizeWeeklyRankingSettings, getCurrentWeekMeta } from "./weekly-settings.js";
 
@@ -149,7 +150,12 @@
     };
 
     const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
     const db = getFirestore(app);
+    const authReadyPromise = signInAnonymously(auth).catch((error) => {
+      console.error("Anonymous sign-in failed:", error);
+      return null;
+    });
 
 
     const els = {
@@ -184,6 +190,8 @@
 
     const fetchSettings = async () => {
       setStatus('読み込み中...');
+      await authReadyPromise;
+
       try {
         const ref = doc(db, ...WEEKLY_SETTINGS_DOC);
         const snap = await getDoc(ref);
@@ -218,6 +226,8 @@
       const normalized = normalizeWeeklyRankingSettings(draft);
       setStatus('保存中...');
       els.saveBtn.disabled = true;
+
+      await authReadyPromise;
 
       try {
         const ref = doc(db, ...WEEKLY_SETTINGS_DOC);

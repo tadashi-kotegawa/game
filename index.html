@@ -608,6 +608,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, getDocs, query, orderBy, limit, serverTimestamp, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
         import { WEEKLY_SETTINGS_DOC, normalizeWeeklyRankingSettings, createDefaultWeeklyRankingSettings as getDefaultWeeklyRankingSettings } from "./weekly-settings.js";
 
@@ -622,7 +623,12 @@
         };
 
         const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
         const db = getFirestore(app);
+        const authReadyPromise = signInAnonymously(auth).catch((error) => {
+            console.error("Failed to sign in anonymously:", error);
+            return null;
+        });
         const INLINE_ICONS = window.INLINE_ICONS || {};
 
         const RANKING_MODE_STORAGE_KEY = 'neoTypeRankingNickname';
@@ -1563,6 +1569,8 @@ const LEGAL_WORDS = [
                 this.weeklySettingsError = '';
                 this.render();
 
+                await authReadyPromise;
+
                 try {
                     const settingsRef = doc(db, ...WEEKLY_SETTINGS_DOC);
                     const snap = await getDoc(settingsRef);
@@ -1852,6 +1860,8 @@ const LEGAL_WORDS = [
 
                 this.isSavingRanking = true;
 
+                await authReadyPromise;
+
                 try {
                     await addDoc(collection(db, 'rankings'), {
                         mode: 'ranking',
@@ -1875,6 +1885,8 @@ const LEGAL_WORDS = [
                 this.rankingError = '';
                 this.rankings = [];
                 this.render();
+
+                await authReadyPromise;
 
                 try {
                     const rankingsQuery = query(
