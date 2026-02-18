@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NEO-TYPE 週間ランキング管理</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --panel: rgba(12, 20, 34, 0.96);
+      --text: rgba(255, 255, 255, 0.95);
+      --muted: rgba(255, 255, 255, 0.68);
+      --accent: #14b8a6;
+      --danger: #ef4444;
+      --radius: 12px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+      background: radial-gradient(circle at 20% -10%, rgba(20,184,166,0.14), transparent 45%), var(--bg);
+      color: var(--text);
+      display: grid;
+      place-items: center;
+      padding: 20px;
+    }
+    .panel {
+      width: min(760px, 100%);
+      background: var(--panel);
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      border-radius: calc(var(--radius) + 4px);
+      box-shadow: 0 24px 50px rgba(0,0,0,0.42);
+      padding: 24px;
+    }
+    h1 { margin: 0 0 8px; font-size: 28px; }
+    .muted { color: var(--muted); font-size: 14px; }
+    .grid { display: grid; gap: 14px; margin-top: 18px; }
+    .row { display: grid; gap: 6px; }
+    label { font-size: 13px; color: var(--muted); }
+    input, select {
+      height: 42px;
+      border: 1px solid rgba(148,163,184,0.3);
+      border-radius: var(--radius);
+      background: rgba(255,255,255,0.08);
+      color: var(--text);
+      padding: 0 12px;
+      font-size: 14px;
+    }
+    input:focus, select:focus { outline: 2px solid rgba(20,184,166,0.5); outline-offset: 1px; }
+    .split { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .btns { display: flex; gap: 10px; margin-top: 16px; }
+    button, .link {
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      height: 42px;
+      padding: 0 16px;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .primary { background: linear-gradient(135deg, #2dd4bf, #0ea5e9); color: #032b2c; }
+    .secondary { background: rgba(255,255,255,0.08); color: var(--text); border-color: rgba(148,163,184,0.3); }
+    .status { margin-top: 12px; min-height: 20px; font-size: 13px; }
+    .ok { color: #6ee7b7; }
+    .err { color: #fecaca; }
+    .hint {
+      margin-top: 18px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(148,163,184,0.25);
+      background: rgba(255,255,255,0.04);
+      font-size: 12px;
+      color: var(--muted);
+    }
+    @media (max-width: 640px) { .split { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <main class="panel">
+    <h1>週間ランキング管理</h1>
+    <p class="muted">今週のランキングルール（モード、制限時間、ライフ）を保存します。</p>
+
+    <form id="weeklyForm" class="grid">
+      <div class="row">
+        <label for="weekKey">ランキングID（空なら自動。例: 2026-W08）</label>
+        <input id="weekKey" maxlength="20" placeholder="空欄なら自動" />
+      </div>
+      <div class="row">
+        <label for="weekLabel">表示名（例: 今週ランキング）</label>
+        <input id="weekLabel" required maxlength="40" placeholder="今週ランキング" />
+      </div>
+      <div class="btns" style="margin-top: 4px;">
+        <button type="button" id="setCurrentWeekBtn" class="secondary">今週を自動セット</button>
+      </div>
+      <p class="muted" style="margin:0;">迷ったら「今週を自動セット」を押して保存でOKです。</p>
+      <div class="row">
+        <label for="gameMode">ゲームモード</label>
+        <select id="gameMode">
+          <option value="normal">通常モード</option>
+          <option value="legal">法律用語モード</option>
+        </select>
+      </div>
+      <div class="split">
+        <div class="row">
+          <label for="duration">制限時間（30〜300秒）</label>
+          <input id="duration" type="number" min="30" max="300" required />
+        </div>
+        <div class="row">
+          <label for="lives">ライフ（1〜10）</label>
+          <input id="lives" type="number" min="1" max="10" required />
+        </div>
+      </div>
+      <div class="row">
+        <label for="realMode">Real Mode</label>
+        <select id="realMode">
+          <option value="true">ON</option>
+          <option value="false">OFF</option>
+        </select>
+      </div>
+
+      <div class="btns">
+        <button type="button" id="reloadBtn" class="secondary">再読み込み</button>
+        <button type="submit" id="saveBtn" class="primary">保存</button>
+        <a href="./index.html" class="link secondary">ゲームへ戻る</a>
+      </div>
+      <div id="status" class="status"></div>
+    </form>
+
+    <p class="hint">※ このページは公開前提で作らないでください。運営専用ドメインに分離し、Firebase Security Rulesで管理者のみ更新できるようにしてください。</p>
+  </main>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
+    import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCYY4MugI7KvfK4o-UNg4NWLnl5ZVIs6s0",
+      authDomain: "typing-ranking-7a3d4.firebaseapp.com",
+      projectId: "typing-ranking-7a3d4",
+      storageBucket: "typing-ranking-7a3d4.firebasestorage.app",
+      messagingSenderId: "141020867565",
+      appId: "1:141020867565:web:8e6d9a21a63b63a66e15e4",
+      measurementId: "G-86HRZLT1ED"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const WEEKLY_SETTINGS_DOC = ['rankingSettings', 'weeklyCurrent'];
+    const DEFAULT_WEEKLY_RANKING_SETTINGS = {
+      duration: 60,
+      gameMode: 'normal',
+      realMode: true,
+      lives: 3,
+      weakKeyRate: 0,
+      ignoreVowels: false
+    };
+
+    const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+    const normalizeWeeklyRankingSettings = (raw = {}) => {
+      const duration = Number(raw.duration);
+      const lives = Number(raw.lives);
+      return {
+        ...DEFAULT_WEEKLY_RANKING_SETTINGS,
+        duration: Number.isFinite(duration) ? clamp(Math.round(duration), 30, 300) : DEFAULT_WEEKLY_RANKING_SETTINGS.duration,
+        lives: Number.isFinite(lives) ? clamp(Math.round(lives), 1, 10) : DEFAULT_WEEKLY_RANKING_SETTINGS.lives,
+        gameMode: raw.gameMode === 'legal' ? 'legal' : 'normal',
+        realMode: Boolean(raw.realMode)
+      };
+    };
+
+    const weekOfYear = () => {
+      const now = new Date();
+      const year = now.getFullYear();
+      const oneJan = new Date(year, 0, 1);
+      const week = Math.ceil((((now - oneJan) / 86400000) + oneJan.getDay() + 1) / 7);
+      return { weekKey: `${year}-W${String(week).padStart(2, '0')}`, weekLabel: `${year}年 第${week}週` };
+    };
+
+    const els = {
+      form: document.getElementById('weeklyForm'),
+      weekKey: document.getElementById('weekKey'),
+      weekLabel: document.getElementById('weekLabel'),
+      gameMode: document.getElementById('gameMode'),
+      duration: document.getElementById('duration'),
+      lives: document.getElementById('lives'),
+      realMode: document.getElementById('realMode'),
+      reloadBtn: document.getElementById('reloadBtn'),
+      setCurrentWeekBtn: document.getElementById('setCurrentWeekBtn'),
+      saveBtn: document.getElementById('saveBtn'),
+      status: document.getElementById('status')
+    };
+
+    const setStatus = (message, type = '') => {
+      els.status.textContent = message;
+      els.status.className = `status ${type}`.trim();
+    };
+
+    const fillForm = (settings) => {
+      const defaults = weekOfYear();
+      const normalized = normalizeWeeklyRankingSettings(settings);
+      els.weekKey.value = (settings.weekKey || defaults.weekKey).toString().trim();
+      els.weekLabel.value = (settings.weekLabel || '今週ランキング').toString().trim();
+      els.gameMode.value = normalized.gameMode;
+      els.duration.value = normalized.duration;
+      els.lives.value = normalized.lives;
+      els.realMode.value = normalized.realMode ? 'true' : 'false';
+    };
+
+    const fetchSettings = async () => {
+      setStatus('読み込み中...');
+      try {
+        const ref = doc(db, ...WEEKLY_SETTINGS_DOC);
+        const snap = await getDoc(ref);
+        fillForm(snap.exists() ? snap.data() : {});
+        setStatus('読み込み完了', 'ok');
+      } catch (error) {
+        console.error(error);
+        fillForm({});
+        setStatus('読み込みに失敗しました。', 'err');
+      }
+    };
+
+    const saveSettings = async () => {
+      const draft = {
+        weekKey: els.weekKey.value.trim(),
+        weekLabel: els.weekLabel.value.trim(),
+        gameMode: els.gameMode.value,
+        duration: Number(els.duration.value),
+        lives: Number(els.lives.value),
+        realMode: els.realMode.value === 'true'
+      };
+
+      if (!draft.weekLabel) {
+        setStatus('表示名は必須です。', 'err');
+        return;
+      }
+
+      if (!draft.weekKey) {
+        draft.weekKey = weekOfYear().weekKey;
+      }
+
+      const normalized = normalizeWeeklyRankingSettings(draft);
+      setStatus('保存中...');
+      els.saveBtn.disabled = true;
+
+      try {
+        const ref = doc(db, ...WEEKLY_SETTINGS_DOC);
+        await setDoc(ref, {
+          ...normalized,
+          weekKey: draft.weekKey,
+          weekLabel: draft.weekLabel,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+        fillForm({ ...normalized, weekKey: draft.weekKey, weekLabel: draft.weekLabel });
+        setStatus('保存しました。', 'ok');
+      } catch (error) {
+        console.error(error);
+        setStatus('保存に失敗しました。', 'err');
+      } finally {
+        els.saveBtn.disabled = false;
+      }
+    };
+
+    els.setCurrentWeekBtn.onclick = () => {
+      const current = weekOfYear();
+      els.weekKey.value = current.weekKey;
+      if (!els.weekLabel.value.trim()) els.weekLabel.value = '今週ランキング';
+      setStatus(`自動セット: ${current.weekKey}`, 'ok');
+    };
+
+    els.reloadBtn.onclick = fetchSettings;
+    els.form.onsubmit = async (e) => {
+      e.preventDefault();
+      await saveSettings();
+    };
+
+    fetchSettings();
+  </script>
+</body>
+</html>

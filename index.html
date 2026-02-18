@@ -184,6 +184,13 @@
             background: radial-gradient(circle at 20% -10%, rgba(20, 184, 166, 0.14), transparent 45%), var(--settings-bg);
             color: var(--settings-text);
         }
+        .ranking-theme {
+            background: radial-gradient(circle at 20% -10%, rgba(250, 204, 21, 0.26), transparent 50%), radial-gradient(circle at 85% 10%, rgba(245, 158, 11, 0.22), transparent 45%), #1f1808;
+        }
+        .ranking-theme .app-panel { border-color: rgba(250, 204, 21, 0.38); }
+        .life-hearts { display: inline-flex; align-items: center; gap: 4px; }
+        .life-heart { width: 20px; height: 20px; color: #f43f5e; filter: drop-shadow(0 0 6px rgba(244,63,94,0.35)); }
+        .life-heart.empty { color: rgba(255,255,255,0.28); filter: none; }
         .app-panel {
             background: var(--settings-panel);
             border-radius: calc(var(--settings-radius) + 6px);
@@ -593,14 +600,15 @@
             'book-open': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>',
             'scale': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"></path><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"></path><path d="M7 21h10"></path><path d="M12 3v18"></path><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"></path></svg>',
             'languages': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 8 6 6"></path><path d="m4 14 6-6 2-3"></path><path d="M2 5h12"></path><path d="M7 2h1"></path><path d="m22 22-5-10-5 10"></path><path d="M14 18h6"></path></svg>',
-            'delete': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 5H9l-7 7 7 7h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Z"></path><line x1="18" y1="9" x2="12" y2="15"></line><line x1="12" y1="9" x2="18" y2="15"></line></svg>'
+            'delete': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 5H9l-7 7 7 7h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Z"></path><line x1="18" y1="9" x2="12" y2="15"></line><line x1="12" y1="9" x2="18" y2="15"></line></svg>',
+            'heart': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>'
         };
     </script>
     <div id="app"></div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, getDocs, query, orderBy, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, getDocs, query, orderBy, limit, serverTimestamp, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCYY4MugI7KvfK4o-UNg4NWLnl5ZVIs6s0",
@@ -617,13 +625,29 @@
         const INLINE_ICONS = window.INLINE_ICONS || {};
 
         const RANKING_MODE_STORAGE_KEY = 'neoTypeRankingNickname';
+        const WEEKLY_SETTINGS_DOC = ['rankingSettings', 'weeklyCurrent'];
 
-        const RANKING_MODE_FIXED_SETTINGS = {
+        const DEFAULT_WEEKLY_RANKING_SETTINGS = {
             duration: 60,
             gameMode: 'normal',
             realMode: true,
+            lives: 3,
             weakKeyRate: 0,
             ignoreVowels: false
+        };
+
+        const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+
+        const normalizeWeeklyRankingSettings = (raw = {}) => {
+            const duration = Number(raw.duration);
+            const lives = Number(raw.lives);
+            return {
+                ...DEFAULT_WEEKLY_RANKING_SETTINGS,
+                duration: Number.isFinite(duration) ? clamp(Math.round(duration), 30, 300) : DEFAULT_WEEKLY_RANKING_SETTINGS.duration,
+                lives: Number.isFinite(lives) ? clamp(Math.round(lives), 1, 10) : DEFAULT_WEEKLY_RANKING_SETTINGS.lives,
+                gameMode: raw.gameMode === 'legal' ? 'legal' : 'normal',
+                realMode: Boolean(raw.realMode)
+            };
         };
 
         const cloneSettings = (settings) => JSON.parse(JSON.stringify(settings));
@@ -1497,8 +1521,15 @@ const LEGAL_WORDS = [
                 this.currentRunMode = 'normal';
                 this.pendingSettingsRestore = null;
                 this.rankingNickname = localStorage.getItem(RANKING_MODE_STORAGE_KEY) || '';
-                
+
+                this.weeklyRankingSettings = this.createDefaultWeeklyRankingSettings();
+                this.weeklySettingsLoading = false;
+                this.weeklySettingsError = '';
+                this.rankingLivesLeft = this.weeklyRankingSettings.lives;
+                this.currentWordMissed = false;
+
                 this.setupEventListeners();
+                this.fetchWeeklyRankingSettings();
                 this.render();
             }
 
@@ -1533,6 +1564,55 @@ const LEGAL_WORDS = [
                     localStorage.removeItem(RANKING_MODE_STORAGE_KEY);
                 }
                 return normalized;
+            }
+
+            createDefaultWeeklyRankingSettings() {
+                const now = new Date();
+                const year = now.getFullYear();
+                const oneJan = new Date(year, 0, 1);
+                const week = Math.ceil((((now - oneJan) / 86400000) + oneJan.getDay() + 1) / 7);
+                const weekKey = `${year}-W${String(week).padStart(2, '0')}`;
+
+                return {
+                    ...DEFAULT_WEEKLY_RANKING_SETTINGS,
+                    weekKey,
+                    weekLabel: `${year}年 第${week}週`
+                };
+            }
+
+            applyWeeklySettings(rawSettings = {}) {
+                const normalized = normalizeWeeklyRankingSettings(rawSettings);
+                const defaults = this.createDefaultWeeklyRankingSettings();
+                this.weeklyRankingSettings = {
+                    ...defaults,
+                    ...normalized,
+                    weekKey: (rawSettings.weekKey || defaults.weekKey).toString().trim() || defaults.weekKey,
+                    weekLabel: (rawSettings.weekLabel || defaults.weekLabel).toString().trim() || defaults.weekLabel
+                };
+                return this.weeklyRankingSettings;
+            }
+
+            async fetchWeeklyRankingSettings() {
+                this.weeklySettingsLoading = true;
+                this.weeklySettingsError = '';
+                this.render();
+
+                try {
+                    const settingsRef = doc(db, ...WEEKLY_SETTINGS_DOC);
+                    const snap = await getDoc(settingsRef);
+                    if (snap.exists()) {
+                        this.applyWeeklySettings(snap.data());
+                    } else {
+                        this.applyWeeklySettings({});
+                    }
+                } catch (error) {
+                    console.error('Failed to fetch weekly ranking settings:', error);
+                    this.weeklySettingsError = '週間ランキング設定の取得に失敗しました。';
+                    this.applyWeeklySettings({});
+                } finally {
+                    this.weeklySettingsLoading = false;
+                    this.render();
+                }
             }
 
             setupEventListeners() {
@@ -1694,6 +1774,15 @@ const LEGAL_WORDS = [
                     if (targetChar) {
                         this.missStats[targetChar] = (this.missStats[targetChar] || 0) + 1;
                     }
+
+                    if (this.currentRunMode === 'ranking' && !this.currentWordMissed) {
+                        this.currentWordMissed = true;
+                        this.rankingLivesLeft = Math.max(0, (this.rankingLivesLeft ?? this.settings.lives) - 1);
+                        if (this.rankingLivesLeft <= 0) {
+                            this.endGame();
+                            return;
+                        }
+                    }
                 }
 
                 this.render();
@@ -1720,12 +1809,14 @@ const LEGAL_WORDS = [
 
             applyRankingModeSettings() {
                 this.pendingSettingsRestore = cloneSettings(this.settings);
+                const weeklySettings = this.weeklyRankingSettings || this.createDefaultWeeklyRankingSettings();
                 this.settings = {
                     ...this.settings,
-                    ...RANKING_MODE_FIXED_SETTINGS,
+                    ...normalizeWeeklyRankingSettings(weeklySettings),
                     displayMode: this.pendingSettingsRestore.displayMode,
                     sound: this.pendingSettingsRestore.sound
                 };
+                this.rankingLivesLeft = this.settings.lives;
             }
 
             restoreSettingsIfNeeded() {
@@ -1734,10 +1825,11 @@ const LEGAL_WORDS = [
                 this.pendingSettingsRestore = null;
             }
 
-            startGame(mode = 'normal') {
+            async startGame(mode = 'normal') {
                 this.currentRunMode = mode;
 
                 if (mode === 'ranking') {
+                    await this.fetchWeeklyRankingSettings();
                     this.applyRankingModeSettings();
                 } else {
                     this.restoreSettingsIfNeeded();
@@ -1752,6 +1844,7 @@ const LEGAL_WORDS = [
                 this.maxCombo = 0;
                 this.timeLeft = this.settings.duration;
                 this.feedback = null;
+                this.rankingLivesLeft = this.currentRunMode === 'ranking' ? this.settings.lives : null;
                 this.pickNextWord();
                 this.startTimer();
                 this.render();
@@ -1798,6 +1891,8 @@ const LEGAL_WORDS = [
                         mode: 'ranking',
                         name: nickname,
                         score: this.score,
+                        weekKey: this.weeklyRankingSettings.weekKey,
+                        weekLabel: this.weeklyRankingSettings.weekLabel,
                         createdAt: serverTimestamp()
                     });
                 } catch (error) {
@@ -1826,6 +1921,7 @@ const LEGAL_WORDS = [
                     snapshot.docs.forEach((docSnap) => {
                         const data = docSnap.data();
                         if (data.mode !== 'ranking') return;
+                        if ((data.weekKey || '') !== this.weeklyRankingSettings.weekKey) return;
 
                         const key = (data.name || '').trim().toLowerCase();
                         if (!key || uniqueByName.has(key)) return;
@@ -1851,11 +1947,12 @@ const LEGAL_WORDS = [
                 }
             }
 
-            openRankingModal() {
+            async openRankingModal() {
                 if (this.showRanking) return;
                 this.showRanking = true;
-                this.fetchRankings();
                 this.render();
+                await this.fetchWeeklyRankingSettings();
+                this.fetchRankings();
             }
 
             closeRankingModal() {
@@ -1864,6 +1961,7 @@ const LEGAL_WORDS = [
             }
 
             pickNextWord() {
+                this.currentWordMissed = false;
                 let autoWeakKeys = Object.entries(this.missStats)
                     .sort(([, a], [, b]) => b - a)
                     .slice(0, 5)
@@ -2035,7 +2133,7 @@ const LEGAL_WORDS = [
                     alert('ランキング登録名を保存しました。');
                     this.render();
                 };
-                
+
                 // Duration buttons
                 [30, 60, 90, 120, 180, 300].forEach(time => {
                     const btn = document.getElementById(`duration${time}`);
@@ -2197,6 +2295,15 @@ const LEGAL_WORDS = [
                     </div>
                 `;
             }
+            renderLivesHearts(totalLives, remainingLives) {
+                const total = Math.max(0, Number(totalLives) || 0);
+                const remaining = Math.max(0, Number(remainingLives) || 0);
+                return Array.from({ length: total }).map((_, index) => {
+                    const empty = index >= remaining;
+                    return `<span class="life-heart ${empty ? 'empty' : ''}">${this.renderIcon('heart')}</span>`;
+                }).join('');
+            }
+
 
             renderSettingRow(title, description, controlHtml) {
                 return `
@@ -2223,11 +2330,15 @@ const LEGAL_WORDS = [
                     <div id="rankingOverlay" class="fixed inset-0 z-50 app-overlay flex items-center justify-center p-4">
                         <div class="w-full max-w-xl app-panel p-6">
                             <div class="flex items-center justify-between mb-4">
-                                <h3 class="text-2xl font-bold flex items-center gap-2" style="color: var(--settings-text);">${this.renderIcon('trophy')} オンラインランキング</h3>
+                                <h3 class="text-2xl font-bold flex items-center gap-2" style="color: var(--settings-text);">${this.renderIcon('trophy')} 週間ランキング</h3>
                                 <div class="flex items-center gap-2">
                                     <button id="reloadRankingBtn" class="px-3 py-2 text-sm app-btn-secondary">更新</button>
                                     <button id="closeRankingBtn" class="p-2 app-btn-secondary">${this.renderIcon('x')}</button>
                                 </div>
+                            </div>
+
+                            <div class="mb-3 text-sm" style="color: var(--settings-text-muted);">
+                                対象週: <strong>${this.escapeHtml(this.weeklyRankingSettings.weekLabel)}</strong> (${this.escapeHtml(this.weeklyRankingSettings.weekKey)}) / ${this.weeklyRankingSettings.gameMode === 'legal' ? '法律用語' : '通常'} / ${this.weeklyRankingSettings.duration}秒 / ライフ${this.weeklyRankingSettings.lives}
                             </div>
 
                             ${this.rankingLoading ? `
@@ -2256,7 +2367,7 @@ const LEGAL_WORDS = [
 
             renderMenu() {
                 return `
-                    <div class="app-shell flex flex-col items-center justify-center p-4 font-sans select-none relative overflow-hidden">
+                    <div class="app-shell ${this.currentRunMode === 'ranking' ? 'ranking-theme' : ''} flex flex-col items-center justify-center p-4 font-sans select-none relative overflow-hidden">
                         ${this.renderRankingButton()}
                         ${this.showKeyboardSelector ? this.renderKeyboardSelector() : ''}
                         ${this.showSettings ? this.renderSettings() : ''}
@@ -2417,6 +2528,11 @@ const LEGAL_WORDS = [
                                         <button id="saveRankingNicknameBtn" class="settings-btn active" style="padding: 0 16px; white-space: nowrap;">保存</button>
                                     </div>`
                                 )}
+                                ${this.renderSettingRow(
+                                    '週間ランキング設定（運営）',
+                                    '管理用サイトで今週ルールを編集します',
+                                    `<a href="./admin.html" target="_blank" rel="noopener noreferrer" class="settings-btn active" style="width: 100%; text-align: center;">管理サイトを開く</a>`
+                                )}
                             </section>
 
                             <button id="saveSettingsBtn" class="settings-btn active" style="width: 100%;">
@@ -2536,7 +2652,7 @@ const LEGAL_WORDS = [
                 const activeNodeIndex = this.currentWordData.nodes.findIndex(n => !n.isDone);
                 
                 return `
-                    <div class="app-shell flex flex-col font-sans select-none overflow-hidden relative">
+                    <div class="app-shell ${this.currentRunMode === 'ranking' ? 'ranking-theme' : ''} flex flex-col font-sans select-none overflow-hidden relative">
                         ${this.renderRankingButton()}
                         ${this.showRanking ? this.renderRankingModal() : ''}
                         ${this.isPaused ? this.renderPauseOverlay() : ''}
@@ -2553,6 +2669,7 @@ const LEGAL_WORDS = [
                                         TIME LIMIT
                                         ${this.settings.gameMode === 'legal' ? `<span class="bg-indigo-900 text-indigo-300 px-2 rounded-full text-[10px] font-bold border border-indigo-700 flex items-center gap-1">${this.renderIcon('scale')} LEGAL MODE</span>` : ''}
                                         ${this.settings.realMode ? `<span class="bg-red-900 text-red-300 px-2 rounded-full text-[10px] font-bold border border-red-700 flex items-center gap-1">${this.renderIcon('delete')} REAL MODE</span>` : ''}
+                                        ${this.currentRunMode === 'ranking' ? `<span class="inline-flex items-center gap-2 bg-amber-950/70 text-amber-200 px-2 py-1 rounded-full text-[10px] font-bold border border-amber-600/70"><span>LIFE</span><span class="life-hearts">${this.renderLivesHearts(this.settings.lives, this.rankingLivesLeft)}</span></span>` : ''}
                                     </span>
                                     <span class="${this.timeLeft < 10 ? 'text-red-500 animate-pulse' : ''}">${this.timeLeft}s</span>
                                 </div>
