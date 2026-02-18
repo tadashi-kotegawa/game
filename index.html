@@ -632,6 +632,7 @@
         const INLINE_ICONS = window.INLINE_ICONS || {};
 
         const RANKING_MODE_STORAGE_KEY = 'neoTypeRankingNickname';
+        const LAST_SUBMITTED_RANKING_STORAGE_KEY = 'neoTypeLastSubmittedRanking';
         const cloneSettings = (settings) => JSON.parse(JSON.stringify(settings));
 
         // --- Constants: KANA_MAP ---
@@ -1546,6 +1547,17 @@ const LEGAL_WORDS = [
                     localStorage.removeItem(RANKING_MODE_STORAGE_KEY);
                 }
                 return normalized;
+            }
+
+            setLastSubmittedRanking(name, score) {
+                const normalizedName = this.normalizeRankingNickname(name);
+                const normalizedScore = Number.isFinite(score) ? score : 0;
+
+                localStorage.setItem(LAST_SUBMITTED_RANKING_STORAGE_KEY, JSON.stringify({
+                    name: normalizedName,
+                    score: normalizedScore,
+                    submittedAt: Date.now()
+                }));
             }
 
             createDefaultWeeklyRankingSettings() {
