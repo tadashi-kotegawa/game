@@ -624,10 +624,28 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const authReadyPromise = signInAnonymously(auth).catch((error) => {
-            console.error("Failed to sign in anonymously:", error);
+        let authResolved = false;
+        const authReadyPromise = signInAnonymously(auth).then((cred) => {
+            authResolved = true;
+            return cred;
+        }).catch((error) => {
+            console.error("Failed to sign in anonymously:", error.code, error.message);
+            authResolved = false;
             return null;
         });
+
+        async function ensureAuth() {
+            await authReadyPromise;
+            if (auth.currentUser) return true;
+            // Retry once if first attempt failed
+            try {
+                await signInAnonymously(auth);
+                return !!auth.currentUser;
+            } catch (e) {
+                console.error("Auth retry failed:", e.code, e.message);
+                return false;
+            }
+        }
         const INLINE_ICONS = window.INLINE_ICONS || {};
 
         const RANKING_MODE_STORAGE_KEY = 'neoTypeRankingNickname';
@@ -1832,7 +1850,13 @@ const LEGAL_WORDS = [
 
                 this.isSavingRanking = true;
 
-                await authReadyPromise;
+                const authed = await ensureAuth();
+                if (!authed) {
+                    console.error('Ranking save aborted: not authenticated. auth.currentUser =', auth.currentUser);
+                    alert('ランキング保存に失敗しました。認証に失敗しました。Firebase ConsoleでAnonymous認証が有効か確認してください。');
+                    this.isSavingRanking = false;
+                    return;
+                }
 
                 try {
                     await addDoc(collection(db, 'rankings'), {
@@ -1843,8 +1867,8 @@ const LEGAL_WORDS = [
                     });
                     this.setLastSubmittedRanking(nickname, this.score);
                 } catch (error) {
-                    console.error('Failed to save ranking score:', error);
-                    alert('ランキング保存に失敗しました。ネットワーク状況を確認して再度お試しください。');
+                    console.error('Failed to save ranking score:', error.code, error.message, error);
+                    alert('ランキング保存に失敗しました。\nエラー: ' + (error.code || error.message || String(error)));
                 } finally {
                     this.isSavingRanking = false;
                 }
@@ -1856,7 +1880,14 @@ const LEGAL_WORDS = [
                 this.rankings = [];
                 this.render();
 
-                await authReadyPromise;
+                const authed = await ensureAuth();
+                if (!authed) {
+                    console.error('Ranking fetch aborted: not authenticated.');
+                    this.rankingError = 'ランキング取得に失敗しました。認証エラーが発生しています。';
+                    this.rankingLoading = false;
+                    this.render();
+                    return;
+                }
 
                 try {
                     const rankingsQuery = query(
@@ -1886,8 +1917,8 @@ const LEGAL_WORDS = [
                             rank: index + 1
                         }));
                 } catch (error) {
-                    console.error('Failed to fetch rankings:', error);
-                    this.rankingError = 'ランキングの取得に失敗しました。時間をおいて再度お試しください。';
+                    console.error('Failed to fetch rankings:', error.code, error.message, error);
+                    this.rankingError = 'ランキングの取得に失敗しました。(' + (error.code || 'unknown') + ')';
                     this.rankings = [];
                 } finally {
                     this.rankingLoading = false;
