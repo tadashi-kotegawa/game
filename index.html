@@ -600,7 +600,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, getDocs, query, orderBy, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, getDocs, query, orderBy, limit, serverTimestamp, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCYY4MugI7KvfK4o-UNg4NWLnl5ZVIs6s0",
@@ -617,14 +617,29 @@
         const INLINE_ICONS = window.INLINE_ICONS || {};
 
         const RANKING_MODE_STORAGE_KEY = 'neoTypeRankingNickname';
-        const LAST_RANKING_SCORE_STORAGE_KEY = 'neoTypeLastRankingScore';
+        const WEEKLY_SETTINGS_DOC = ['rankingSettings', 'weeklyCurrent'];
 
-        const RANKING_MODE_FIXED_SETTINGS = {
+        const DEFAULT_WEEKLY_RANKING_SETTINGS = {
             duration: 60,
             gameMode: 'normal',
             realMode: true,
+            lives: 3,
             weakKeyRate: 0,
             ignoreVowels: false
+        };
+
+        const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+
+        const normalizeWeeklyRankingSettings = (raw = {}) => {
+            const duration = Number(raw.duration);
+            const lives = Number(raw.lives);
+            return {
+                ...DEFAULT_WEEKLY_RANKING_SETTINGS,
+                duration: Number.isFinite(duration) ? clamp(Math.round(duration), 30, 300) : DEFAULT_WEEKLY_RANKING_SETTINGS.duration,
+                lives: Number.isFinite(lives) ? clamp(Math.round(lives), 1, 10) : DEFAULT_WEEKLY_RANKING_SETTINGS.lives,
+                gameMode: raw.gameMode === 'legal' ? 'legal' : 'normal',
+                realMode: Boolean(raw.realMode)
+            };
         };
 
         const cloneSettings = (settings) => JSON.parse(JSON.stringify(settings));
@@ -1501,6 +1516,7 @@ const LEGAL_WORDS = [
                 this.lastSubmittedRanking = this.loadLastSubmittedRanking();
                 
                 this.setupEventListeners();
+                this.fetchWeeklyRankingSettings();
                 this.render();
             }
 
@@ -1537,51 +1553,53 @@ const LEGAL_WORDS = [
                 return normalized;
             }
 
-            loadLastSubmittedRanking() {
-                const saved = localStorage.getItem(LAST_RANKING_SCORE_STORAGE_KEY);
-                if (!saved) return null;
+            createDefaultWeeklyRankingSettings() {
+                const now = new Date();
+                const year = now.getFullYear();
+                const oneJan = new Date(year, 0, 1);
+                const week = Math.ceil((((now - oneJan) / 86400000) + oneJan.getDay() + 1) / 7);
+                const weekKey = `${year}-W${String(week).padStart(2, '0')}`;
+
+                return {
+                    ...DEFAULT_WEEKLY_RANKING_SETTINGS,
+                    weekKey,
+                    weekLabel: `${year}年 第${week}週`
+                };
+            }
+
+            applyWeeklySettings(rawSettings = {}) {
+                const normalized = normalizeWeeklyRankingSettings(rawSettings);
+                const defaults = this.createDefaultWeeklyRankingSettings();
+                this.weeklyRankingSettings = {
+                    ...defaults,
+                    ...normalized,
+                    weekKey: (rawSettings.weekKey || defaults.weekKey).toString().trim() || defaults.weekKey,
+                    weekLabel: (rawSettings.weekLabel || defaults.weekLabel).toString().trim() || defaults.weekLabel
+                };
+                return this.weeklyRankingSettings;
+            }
+
+            async fetchWeeklyRankingSettings() {
+                this.weeklySettingsLoading = true;
+                this.weeklySettingsError = '';
+                this.render();
 
                 try {
-                    const parsed = JSON.parse(saved);
-                    const normalizedName = this.normalizeRankingNickname(parsed?.name);
-                    const score = Number(parsed?.score);
-                    if (!normalizedName || !Number.isFinite(score)) return null;
-                    return {
-                        name: normalizedName,
-                        score
-                    };
-                } catch (_error) {
-                    return null;
+                    const settingsRef = doc(db, ...WEEKLY_SETTINGS_DOC);
+                    const snap = await getDoc(settingsRef);
+                    if (snap.exists()) {
+                        this.applyWeeklySettings(snap.data());
+                    } else {
+                        this.applyWeeklySettings({});
+                    }
+                } catch (error) {
+                    console.error('Failed to fetch weekly ranking settings:', error);
+                    this.weeklySettingsError = '週間ランキング設定の取得に失敗しました。';
+                    this.applyWeeklySettings({});
+                } finally {
+                    this.weeklySettingsLoading = false;
+                    this.render();
                 }
-            }
-
-            setLastSubmittedRanking(name, score) {
-                const normalizedName = this.normalizeRankingNickname(name);
-                const numericScore = Number(score);
-
-                if (!normalizedName || !Number.isFinite(numericScore)) {
-                    this.lastSubmittedRanking = null;
-                    localStorage.removeItem(LAST_RANKING_SCORE_STORAGE_KEY);
-                    return;
-                }
-
-                this.lastSubmittedRanking = {
-                    name: normalizedName,
-                    score: numericScore
-                };
-                localStorage.setItem(LAST_RANKING_SCORE_STORAGE_KEY, JSON.stringify(this.lastSubmittedRanking));
-            }
-
-            isPlayerRankingEntry(item) {
-                const currentName = this.normalizeRankingNickname(this.rankingNickname).toLowerCase();
-                if (!currentName || !this.lastSubmittedRanking) return false;
-
-                const itemName = this.normalizeRankingNickname(item?.name).toLowerCase();
-                const submittedName = this.normalizeRankingNickname(this.lastSubmittedRanking.name).toLowerCase();
-                const itemScore = Number(item?.score || 0);
-                const submittedScore = Number(this.lastSubmittedRanking.score);
-
-                return itemName === currentName && submittedName === currentName && itemScore === submittedScore;
             }
 
             setupEventListeners() {
@@ -1743,6 +1761,14 @@ const LEGAL_WORDS = [
                     if (targetChar) {
                         this.missStats[targetChar] = (this.missStats[targetChar] || 0) + 1;
                     }
+
+                    if (this.currentRunMode === 'ranking') {
+                        this.rankingLivesLeft = Math.max(0, (this.rankingLivesLeft ?? this.settings.lives) - 1);
+                        if (this.rankingLivesLeft <= 0) {
+                            this.endGame();
+                            return;
+                        }
+                    }
                 }
 
                 this.render();
@@ -1769,12 +1795,14 @@ const LEGAL_WORDS = [
 
             applyRankingModeSettings() {
                 this.pendingSettingsRestore = cloneSettings(this.settings);
+                const weeklySettings = this.weeklyRankingSettings || this.createDefaultWeeklyRankingSettings();
                 this.settings = {
                     ...this.settings,
-                    ...RANKING_MODE_FIXED_SETTINGS,
+                    ...normalizeWeeklyRankingSettings(weeklySettings),
                     displayMode: this.pendingSettingsRestore.displayMode,
                     sound: this.pendingSettingsRestore.sound
                 };
+                this.rankingLivesLeft = this.settings.lives;
             }
 
             restoreSettingsIfNeeded() {
@@ -1801,6 +1829,7 @@ const LEGAL_WORDS = [
                 this.maxCombo = 0;
                 this.timeLeft = this.settings.duration;
                 this.feedback = null;
+                this.rankingLivesLeft = this.currentRunMode === 'ranking' ? this.settings.lives : null;
                 this.pickNextWord();
                 this.startTimer();
                 this.render();
@@ -1847,6 +1876,8 @@ const LEGAL_WORDS = [
                         mode: 'ranking',
                         name: nickname,
                         score: this.score,
+                        weekKey: this.weeklyRankingSettings.weekKey,
+                        weekLabel: this.weeklyRankingSettings.weekLabel,
                         createdAt: serverTimestamp()
                     });
                     this.setLastSubmittedRanking(nickname, this.score);
@@ -1876,6 +1907,7 @@ const LEGAL_WORDS = [
                     snapshot.docs.forEach((docSnap) => {
                         const data = docSnap.data();
                         if (data.mode !== 'ranking') return;
+                        if ((data.weekKey || '') !== this.weeklyRankingSettings.weekKey) return;
 
                         const key = (data.name || '').trim().toLowerCase();
                         if (!key || uniqueByName.has(key)) return;
@@ -1901,11 +1933,12 @@ const LEGAL_WORDS = [
                 }
             }
 
-            openRankingModal() {
+            async openRankingModal() {
                 if (this.showRanking) return;
                 this.showRanking = true;
-                this.fetchRankings();
                 this.render();
+                await this.fetchWeeklyRankingSettings();
+                this.fetchRankings();
             }
 
             closeRankingModal() {
@@ -2085,7 +2118,7 @@ const LEGAL_WORDS = [
                     alert('ランキング登録名を保存しました。');
                     this.render();
                 };
-                
+
                 // Duration buttons
                 [30, 60, 90, 120, 180, 300].forEach(time => {
                     const btn = document.getElementById(`duration${time}`);
@@ -2273,11 +2306,15 @@ const LEGAL_WORDS = [
                     <div id="rankingOverlay" class="fixed inset-0 z-50 app-overlay flex items-center justify-center p-4">
                         <div class="w-full max-w-xl app-panel p-6">
                             <div class="flex items-center justify-between mb-4">
-                                <h3 class="text-2xl font-bold flex items-center gap-2" style="color: var(--settings-text);">${this.renderIcon('trophy')} オンラインランキング</h3>
+                                <h3 class="text-2xl font-bold flex items-center gap-2" style="color: var(--settings-text);">${this.renderIcon('trophy')} 週間ランキング</h3>
                                 <div class="flex items-center gap-2">
                                     <button id="reloadRankingBtn" class="px-3 py-2 text-sm app-btn-secondary">更新</button>
                                     <button id="closeRankingBtn" class="p-2 app-btn-secondary">${this.renderIcon('x')}</button>
                                 </div>
+                            </div>
+
+                            <div class="mb-3 text-sm" style="color: var(--settings-text-muted);">
+                                対象週: <strong>${this.escapeHtml(this.weeklyRankingSettings.weekLabel)}</strong> (${this.escapeHtml(this.weeklyRankingSettings.weekKey)}) / ${this.weeklyRankingSettings.gameMode === 'legal' ? '法律用語' : '通常'} / ${this.weeklyRankingSettings.duration}秒 / ライフ${this.weeklyRankingSettings.lives}
                             </div>
 
                             ${this.rankingLoading ? `
@@ -2470,6 +2507,11 @@ const LEGAL_WORDS = [
                                         <button id="saveRankingNicknameBtn" class="settings-btn active" style="padding: 0 16px; white-space: nowrap;">保存</button>
                                     </div>`
                                 )}
+                                ${this.renderSettingRow(
+                                    '週間ランキング設定（運営）',
+                                    '管理用サイトで今週ルールを編集します',
+                                    `<a href="./admin.html" target="_blank" rel="noopener noreferrer" class="settings-btn active" style="width: 100%; text-align: center;">管理サイトを開く</a>`
+                                )}
                             </section>
 
                             <button id="saveSettingsBtn" class="settings-btn active" style="width: 100%;">
@@ -2606,6 +2648,7 @@ const LEGAL_WORDS = [
                                         TIME LIMIT
                                         ${this.settings.gameMode === 'legal' ? `<span class="bg-indigo-900 text-indigo-300 px-2 rounded-full text-[10px] font-bold border border-indigo-700 flex items-center gap-1">${this.renderIcon('scale')} LEGAL MODE</span>` : ''}
                                         ${this.settings.realMode ? `<span class="bg-red-900 text-red-300 px-2 rounded-full text-[10px] font-bold border border-red-700 flex items-center gap-1">${this.renderIcon('delete')} REAL MODE</span>` : ''}
+                                        ${this.currentRunMode === 'ranking' ? `<span class="bg-amber-900 text-amber-300 px-2 rounded-full text-[10px] font-bold border border-amber-700">LIFE ${this.rankingLivesLeft}</span>` : ''}
                                     </span>
                                     <span class="${this.timeLeft < 10 ? 'text-red-500 animate-pulse' : ''}">${this.timeLeft}s</span>
                                 </div>
