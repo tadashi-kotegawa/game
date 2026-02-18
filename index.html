@@ -609,8 +609,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, getDocs, query, where, orderBy, limit, serverTimestamp, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
-        import { WEEKLY_SETTINGS_DOC, normalizeWeeklyRankingSettings, createDefaultWeeklyRankingSettings as getDefaultWeeklyRankingSettings } from "./weekly-settings.js";
+        import { getFirestore, collection, addDoc, getDocs, query, where, orderBy, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCYY4MugI7KvfK4o-UNg4NWLnl5ZVIs6s0",
@@ -634,6 +633,14 @@
         const RANKING_MODE_STORAGE_KEY = 'neoTypeRankingNickname';
         const LAST_SUBMITTED_RANKING_STORAGE_KEY = 'neoTypeLastSubmittedRanking';
         const cloneSettings = (settings) => JSON.parse(JSON.stringify(settings));
+        const RANKING_MODE_SETTINGS = {
+            duration: 60,
+            gameMode: 'normal',
+            realMode: true,
+            lives: 3,
+            weakKeyRate: 0,
+            ignoreVowels: false
+        };
 
         // --- Constants: KANA_MAP ---
         const KANA_MAP = {
@@ -1505,14 +1512,10 @@ const LEGAL_WORDS = [
                 this.pendingSettingsRestore = null;
                 this.rankingNickname = localStorage.getItem(RANKING_MODE_STORAGE_KEY) || '';
 
-                this.weeklyRankingSettings = this.createDefaultWeeklyRankingSettings();
-                this.weeklySettingsLoading = false;
-                this.weeklySettingsError = '';
-                this.rankingLivesLeft = this.weeklyRankingSettings.lives;
+                this.rankingLivesLeft = RANKING_MODE_SETTINGS.lives;
                 this.currentWordMissed = false;
 
                 this.setupEventListeners();
-                this.fetchWeeklyRankingSettings();
                 this.render();
             }
 
@@ -1558,47 +1561,6 @@ const LEGAL_WORDS = [
                     score: normalizedScore,
                     submittedAt: Date.now()
                 }));
-            }
-
-            createDefaultWeeklyRankingSettings() {
-                return getDefaultWeeklyRankingSettings();
-            }
-
-            applyWeeklySettings(rawSettings = {}) {
-                const normalized = normalizeWeeklyRankingSettings(rawSettings);
-                const defaults = this.createDefaultWeeklyRankingSettings();
-                this.weeklyRankingSettings = {
-                    ...defaults,
-                    ...normalized,
-                    weekKey: (rawSettings.weekKey || defaults.weekKey).toString().trim() || defaults.weekKey,
-                    weekLabel: (rawSettings.weekLabel || defaults.weekLabel).toString().trim() || defaults.weekLabel
-                };
-                return this.weeklyRankingSettings;
-            }
-
-            async fetchWeeklyRankingSettings() {
-                this.weeklySettingsLoading = true;
-                this.weeklySettingsError = '';
-                this.render();
-
-                await authReadyPromise;
-
-                try {
-                    const settingsRef = doc(db, ...WEEKLY_SETTINGS_DOC);
-                    const snap = await getDoc(settingsRef);
-                    if (snap.exists()) {
-                        this.applyWeeklySettings(snap.data());
-                    } else {
-                        this.applyWeeklySettings({});
-                    }
-                } catch (error) {
-                    console.error('Failed to fetch weekly ranking settings:', error);
-                    this.weeklySettingsError = '週間ランキング設定の取得に失敗しました。';
-                    this.applyWeeklySettings({});
-                } finally {
-                    this.weeklySettingsLoading = false;
-                    this.render();
-                }
             }
 
             setupEventListeners() {
@@ -1795,10 +1757,9 @@ const LEGAL_WORDS = [
 
             applyRankingModeSettings() {
                 this.pendingSettingsRestore = cloneSettings(this.settings);
-                const weeklySettings = this.weeklyRankingSettings || this.createDefaultWeeklyRankingSettings();
                 this.settings = {
                     ...this.settings,
-                    ...normalizeWeeklyRankingSettings(weeklySettings),
+                    ...RANKING_MODE_SETTINGS,
                     displayMode: this.pendingSettingsRestore.displayMode,
                     sound: this.pendingSettingsRestore.sound
                 };
@@ -1815,7 +1776,6 @@ const LEGAL_WORDS = [
                 this.currentRunMode = mode;
 
                 if (mode === 'ranking') {
-                    await this.fetchWeeklyRankingSettings();
                     this.applyRankingModeSettings();
                 } else {
                     this.restoreSettingsIfNeeded();
@@ -1879,8 +1839,6 @@ const LEGAL_WORDS = [
                         mode: 'ranking',
                         name: nickname,
                         score: this.score,
-                        weekKey: this.weeklyRankingSettings.weekKey,
-                        weekLabel: this.weeklyRankingSettings.weekLabel,
                         createdAt: serverTimestamp()
                     });
                     this.setLastSubmittedRanking(nickname, this.score);
@@ -1901,14 +1859,9 @@ const LEGAL_WORDS = [
                 await authReadyPromise;
 
                 try {
-                    const rankingConstraints = [where('mode', '==', 'ranking')];
-                    if (this.weeklyRankingSettings.weekKey) {
-                        rankingConstraints.push(where('weekKey', '==', this.weeklyRankingSettings.weekKey));
-                    }
-
                     const rankingsQuery = query(
                         collection(db, 'rankings'),
-                        ...rankingConstraints,
+                        where('mode', '==', 'ranking'),
                         orderBy('score', 'desc'),
                         limit(200)
                     );
@@ -1946,7 +1899,6 @@ const LEGAL_WORDS = [
                 if (this.showRanking) return;
                 this.showRanking = true;
                 this.render();
-                await this.fetchWeeklyRankingSettings();
                 this.fetchRankings();
             }
 
@@ -2325,7 +2277,7 @@ const LEGAL_WORDS = [
                     <div id="rankingOverlay" class="fixed inset-0 z-50 app-overlay flex items-center justify-center p-4">
                         <div class="w-full max-w-xl app-panel p-6">
                             <div class="flex items-center justify-between mb-4">
-                                <h3 class="text-2xl font-bold flex items-center gap-2" style="color: var(--settings-text);">${this.renderIcon('trophy')} 週間ランキング</h3>
+                                <h3 class="text-2xl font-bold flex items-center gap-2" style="color: var(--settings-text);">${this.renderIcon('trophy')} ランキング</h3>
                                 <div class="flex items-center gap-2">
                                     <button id="reloadRankingBtn" class="px-3 py-2 text-sm app-btn-secondary">更新</button>
                                     <button id="closeRankingBtn" class="p-2 app-btn-secondary">${this.renderIcon('x')}</button>
@@ -2333,7 +2285,7 @@ const LEGAL_WORDS = [
                             </div>
 
                             <div class="mb-3 text-sm" style="color: var(--settings-text-muted);">
-                                対象週: <strong>${this.escapeHtml(this.weeklyRankingSettings.weekLabel)}</strong> (${this.escapeHtml(this.weeklyRankingSettings.weekKey)}) / ${this.weeklyRankingSettings.gameMode === 'legal' ? '法律用語' : '通常'} / ${this.weeklyRankingSettings.duration}秒 / ライフ${this.weeklyRankingSettings.lives}
+                                全期間集計 / ${RANKING_MODE_SETTINGS.gameMode === 'legal' ? '法律用語' : '通常'} / ${RANKING_MODE_SETTINGS.duration}秒 / ライフ${RANKING_MODE_SETTINGS.lives}
                             </div>
 
                             ${this.rankingLoading ? `
@@ -2525,11 +2477,6 @@ const LEGAL_WORDS = [
                                         <input id="rankingNicknameInput" type="text" maxlength="20" value="${this.escapeHtml(this.rankingNickname || '')}" placeholder="ランキングに表示する名前" class="settings-input" />
                                         <button id="saveRankingNicknameBtn" class="settings-btn active" style="padding: 0 16px; white-space: nowrap;">保存</button>
                                     </div>`
-                                )}
-                                ${this.renderSettingRow(
-                                    '週間ランキング設定（運営）',
-                                    '管理用サイトで今週ルールを編集します',
-                                    `<a href="./admin.html" target="_blank" rel="noopener noreferrer" class="settings-btn active" style="width: 100%; text-align: center;">管理サイトを開く</a>`
                                 )}
                             </section>
 
