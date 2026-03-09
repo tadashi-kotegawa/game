@@ -1602,6 +1602,12 @@ const LEGAL_WORDS = [
                 }));
             }
 
+            isPlayerRankingEntry(item) {
+                const playerName = this.normalizeRankingNickname(this.rankingNickname).toLowerCase();
+                if (!playerName) return false;
+                return (item.name || '').trim().toLowerCase() === playerName;
+            }
+
             setupEventListeners() {
                 this.keyDownHandler = (e) => this.handleKeyDown(e);
                 document.addEventListener('keydown', this.keyDownHandler);
