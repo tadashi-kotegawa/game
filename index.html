@@ -2127,14 +2127,10 @@ const LEGAL_WORDS = [
                 };
 
                 const rankingBtn = document.getElementById('rankingBtn');
-                if (rankingBtn) rankingBtn.onclick = () => {
-                    if (this.gameState === 'menu') {
-                        this.gameState = 'ranking-intro';
-                        this.render();
-                    } else {
-                        this.openRankingModal();
-                    }
-                };
+                if (rankingBtn) rankingBtn.onclick = () => this.openRankingModal();
+
+                const rankingModeBtn = document.getElementById('rankingModeBtn');
+                if (rankingModeBtn) rankingModeBtn.onclick = () => { this.gameState = 'ranking-intro'; this.render(); };
 
                 const rankingIntroStartBtn = document.getElementById('rankingIntroStartBtn');
                 if (rankingIntroStartBtn) rankingIntroStartBtn.onclick = () => this.startGame('ranking');
@@ -2605,6 +2601,9 @@ const LEGAL_WORDS = [
                                         <span class="relative z-10 flex items-center justify-center gap-2">
                                             ${this.settings.gameMode === 'legal' ? this.renderIcon('scale') : this.renderIcon('play')} START
                                         </span>
+                                    </button>
+                                    <button id="rankingModeBtn" class="w-full px-8 py-3 text-lg app-btn-accent">
+                                        ${this.renderIcon('trophy')} ランキングモード
                                     </button>
                                     <div class="text-xs text-slate-500 font-mono">Press [SPACE] to Start</div>
                                 </div>
