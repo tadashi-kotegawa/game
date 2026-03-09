@@ -1627,9 +1627,14 @@ const LEGAL_WORDS = [
                 if (this.isPaused) return;
 
                 if (e.code === 'Space') {
-                    if (this.gameState === 'menu' || this.gameState === 'finished') {
+                    if (this.gameState === 'menu') {
                         e.preventDefault();
                         this.startGame('normal');
+                        return;
+                    }
+                    if (this.gameState === 'finished') {
+                        e.preventDefault();
+                        this.startGame(this.currentRunMode);
                         return;
                     }
                     if (this.gameState === 'playing') {
