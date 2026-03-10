@@ -4,8 +4,9 @@
     {
       "name": "NEO-TYPE Static Server",
       "runtimeExecutable": "node",
-      "runtimeArgs": [".claude/serve.js"],
-      "port": 3000
+      "runtimeArgs": ["C:/Program Files/nodejs/node_modules/npm/bin/npx-cli.js", "serve", "."],
+      "port": 3002,
+      "autoPort": true
     }
   ]
 }
