@@ -1322,7 +1322,7 @@ const LEGAL_WORDS = [
                 }
 
                 if (this.gameState === 'ranking-finished') {
-                    if (e.code === 'Space') { e.preventDefault(); this.gameState = 'ranking-intro'; this.render(); }
+                    if (e.code === 'Space') { e.preventDefault(); this.startGame('ranking'); }
                     return;
                 }
 
@@ -1834,10 +1834,7 @@ const LEGAL_WORDS = [
                 if (rankingIntroViewBtn) rankingIntroViewBtn.onclick = () => this.openRankingModal();
 
                 const rankingFinishedRetryBtn = document.getElementById('rankingFinishedRetryBtn');
-                if (rankingFinishedRetryBtn) rankingFinishedRetryBtn.onclick = () => {
-                    this.gameState = 'ranking-intro';
-                    this.render();
-                };
+                if (rankingFinishedRetryBtn) rankingFinishedRetryBtn.onclick = () => this.startGame('ranking');
 
                 const rankingFinishedMenuBtn = document.getElementById('rankingFinishedMenuBtn');
                 if (rankingFinishedMenuBtn) rankingFinishedMenuBtn.onclick = () => {
