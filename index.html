@@ -1214,14 +1214,20 @@ const LEGAL_WORDS = [
                     // Try season schedule first
                     const scheduleSnap = await getDoc(doc(db, ...SEASON_SCHEDULE_DOC));
                     if (scheduleSnap.exists()) {
-                        const currentSeason = findCurrentSeason(scheduleSnap.data().seasons || []);
+                        const allSeasons = scheduleSnap.data().seasons || [];
+                        const currentSeason = findCurrentSeason(allSeasons);
                         if (currentSeason) {
                             const normalized = normalizeWeeklyRankingSettings(currentSeason);
+                            const sortedSeasons = [...allSeasons].sort((a, b) => a.startDate.localeCompare(b.startDate));
+                            const seasonNumber = sortedSeasons.findIndex(s => s.startDate === currentSeason.startDate) + 1;
                             this.rankingModeSettings = {
                                 ...defaults,
                                 ...normalized,
                                 weekKey: currentSeason.startDate,
-                                weekLabel: currentSeason.weekLabel
+                                weekLabel: currentSeason.weekLabel,
+                                seasonNumber,
+                                seasonStartDate: currentSeason.startDate,
+                                seasonEndDate: currentSeason.endDate,
                             };
                             return;
                         }
@@ -1316,7 +1322,7 @@ const LEGAL_WORDS = [
                 if (this.isPaused) return;
 
                 if (this.gameState === 'ranking-intro') {
-                    if (e.key === 'Shift') { e.preventDefault(); this.startGame('ranking'); }
+                    if (e.code === 'Space') { e.preventDefault(); this.startGame('ranking'); }
                     else if (e.key === 'Escape') { this.gameState = 'menu'; this.render(); }
                     return;
                 }
@@ -2130,6 +2136,13 @@ const LEGAL_WORDS = [
                 const hearts = Array.from({ length: lives }).map((_, i) =>
                     `<span class="life-heart">${this.renderIcon('heart')}</span>`
                 ).join('');
+                const seasonBadge = (() => {
+                    if (!s.seasonNumber || !s.seasonStartDate || !s.seasonEndDate) return '';
+                    const sd = new Date(s.seasonStartDate + 'T00:00:00');
+                    const ed = new Date(s.seasonEndDate + 'T00:00:00');
+                    const label = `第${s.seasonNumber}回（${sd.getMonth()+1}/${sd.getDate()}～${ed.getMonth()+1}/${ed.getDate()}）`;
+                    return `<div class="text-sm font-bold" style="color: rgba(250,204,21,0.8);">${label}</div>`;
+                })();
 
                 return `
                     <div class="app-shell ranking-theme flex flex-col items-center justify-center p-4 font-sans select-none relative overflow-hidden">
@@ -2138,6 +2151,7 @@ const LEGAL_WORDS = [
                             <div class="text-center space-y-2">
                                 <div class="text-5xl mb-2">${this.renderIcon('trophy')}</div>
                                 <h1 class="text-4xl font-black" style="color: #facc15;">ランキングモード</h1>
+                                ${seasonBadge}
                                 <p class="text-sm" style="color: rgba(250,204,21,0.65);">スコアが記録されます — 全期間集計</p>
                             </div>
 
@@ -2166,7 +2180,7 @@ const LEGAL_WORDS = [
                             <div class="flex flex-col gap-3">
                                 <button id="rankingIntroStartBtn" class="w-full px-8 py-4 text-xl font-black app-btn-accent flex items-center justify-center gap-3">
                                     ${this.renderIcon('play')} スタート
-                                    <span class="text-sm font-normal opacity-60">(Shift)</span>
+                                    <span class="text-sm font-normal opacity-60">(Space)</span>
                                 </button>
                                 <div class="flex gap-3">
                                     <button id="rankingIntroViewBtn" class="flex-1 py-3 app-btn-secondary flex items-center justify-center gap-2 text-sm">
@@ -2178,7 +2192,7 @@ const LEGAL_WORDS = [
                                 </div>
                             </div>
                             <div class="text-center text-xs font-mono" style="color: rgba(250,204,21,0.35);">
-                                Press [Shift] to Start · [Esc] to Back
+                                Press [Space] to Start · [Esc] to Back
                             </div>
                         </div>
                         <div class="absolute bottom-4 right-4 text-xs font-mono select-none" style="color: rgba(250,204,21,0.3);">
