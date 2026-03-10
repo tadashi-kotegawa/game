@@ -1214,14 +1214,20 @@ const LEGAL_WORDS = [
                     // Try season schedule first
                     const scheduleSnap = await getDoc(doc(db, ...SEASON_SCHEDULE_DOC));
                     if (scheduleSnap.exists()) {
-                        const currentSeason = findCurrentSeason(scheduleSnap.data().seasons || []);
+                        const allSeasons = scheduleSnap.data().seasons || [];
+                        const currentSeason = findCurrentSeason(allSeasons);
                         if (currentSeason) {
                             const normalized = normalizeWeeklyRankingSettings(currentSeason);
+                            const sortedSeasons = [...allSeasons].sort((a, b) => a.startDate.localeCompare(b.startDate));
+                            const seasonNumber = sortedSeasons.findIndex(s => s.startDate === currentSeason.startDate) + 1;
                             this.rankingModeSettings = {
                                 ...defaults,
                                 ...normalized,
                                 weekKey: currentSeason.startDate,
-                                weekLabel: currentSeason.weekLabel
+                                weekLabel: currentSeason.weekLabel,
+                                seasonNumber,
+                                seasonStartDate: currentSeason.startDate,
+                                seasonEndDate: currentSeason.endDate,
                             };
                             return;
                         }
@@ -2127,6 +2133,13 @@ const LEGAL_WORDS = [
                 const hearts = Array.from({ length: lives }).map((_, i) =>
                     `<span class="life-heart">${this.renderIcon('heart')}</span>`
                 ).join('');
+                const seasonBadge = (() => {
+                    if (!s.seasonNumber || !s.seasonStartDate || !s.seasonEndDate) return '';
+                    const sd = new Date(s.seasonStartDate + 'T00:00:00');
+                    const ed = new Date(s.seasonEndDate + 'T00:00:00');
+                    const label = `第${s.seasonNumber}回（${sd.getMonth()+1}/${sd.getDate()}～${ed.getMonth()+1}/${ed.getDate()}）`;
+                    return `<div class="text-sm font-bold" style="color: rgba(250,204,21,0.8);">${label}</div>`;
+                })();
 
                 return `
                     <div class="app-shell ranking-theme flex flex-col items-center justify-center p-4 font-sans select-none relative overflow-hidden">
@@ -2135,11 +2148,10 @@ const LEGAL_WORDS = [
                         <div class="max-w-md w-full space-y-5 animate-in zoom-in-95 duration-300 relative">
                             <!-- Header -->
                             <div class="text-center space-y-2">
-                                <div style="display:inline-flex;align-items:center;justify-content:center;width:64px;height:64px;border-radius:20px;background:linear-gradient(135deg,rgba(250,204,21,0.18),rgba(250,204,21,0.06));border:1px solid rgba(250,204,21,0.3);box-shadow:0 0 30px rgba(250,204,21,0.12);margin-bottom:8px;">
-                                    <span style="font-size:1.8rem;">${this.renderIcon('trophy')}</span>
-                                </div>
-                                <h1 class="text-4xl font-black" style="color:#facc15;text-shadow:0 0 40px rgba(250,204,21,0.3);">ランキングモード</h1>
-                                <p class="text-xs font-bold tracking-widest" style="color:rgba(250,204,21,0.45);">SCORE RECORDED · ALL TIME</p>
+                                <div class="text-5xl mb-2">${this.renderIcon('trophy')}</div>
+                                <h1 class="text-4xl font-black" style="color: #facc15;">ランキングモード</h1>
+                                ${seasonBadge}
+                                <p class="text-sm" style="color: rgba(250,204,21,0.65);">スコアが記録されます — 全期間集計</p>
                             </div>
 
                             <!-- Rules card -->
