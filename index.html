@@ -610,7 +610,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, getDocs, query, where, orderBy, limit, serverTimestamp, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
-        import { WEEKLY_SETTINGS_DOC, createDefaultWeeklyRankingSettings, normalizeWeeklyRankingSettings } from "./weekly-settings.js";
+        import { WEEKLY_SETTINGS_DOC, SEASON_SCHEDULE_DOC, createDefaultWeeklyRankingSettings, normalizeWeeklyRankingSettings, findCurrentSeason } from "./weekly-settings.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCYY4MugI7KvfK4o-UNg4NWLnl5ZVIs6s0",
@@ -1538,6 +1538,22 @@ const LEGAL_WORDS = [
             async loadWeeklyRankingSettings() {
                 const defaults = createDefaultWeeklyRankingSettings();
                 try {
+                    // Try season schedule first
+                    const scheduleSnap = await getDoc(doc(db, ...SEASON_SCHEDULE_DOC));
+                    if (scheduleSnap.exists()) {
+                        const currentSeason = findCurrentSeason(scheduleSnap.data().seasons || []);
+                        if (currentSeason) {
+                            const normalized = normalizeWeeklyRankingSettings(currentSeason);
+                            this.rankingModeSettings = {
+                                ...defaults,
+                                ...normalized,
+                                weekKey: currentSeason.startDate,
+                                weekLabel: currentSeason.weekLabel
+                            };
+                            return;
+                        }
+                    }
+                    // Fallback to weeklyCurrent
                     const snap = await getDoc(doc(db, ...WEEKLY_SETTINGS_DOC));
                     const raw = snap.exists() ? snap.data() : {};
                     const normalized = normalizeWeeklyRankingSettings(raw);
@@ -2403,7 +2419,7 @@ const LEGAL_WORDS = [
                             </div>
 
                             <div class="mb-3 text-sm" style="color: var(--settings-text-muted);">
-                                ${this.escapeHtml(this.rankingModeSettings.weekLabel || '今週ランキング')} (${this.escapeHtml(this.rankingModeSettings.weekKey || '-')}) / ${this.rankingModeSettings.gameMode === 'legal' ? '法律用語' : '通常'} / ${this.rankingModeSettings.duration}秒 / ライフ${this.rankingModeSettings.lives}
+                                ${this.escapeHtml(this.rankingModeSettings.weekLabel || '今週ランキング')} / ${this.rankingModeSettings.gameMode === 'legal' ? '法律用語' : '通常'} / ${this.rankingModeSettings.duration}秒 / ライフ${this.rankingModeSettings.lives}
                             </div>
 
                             ${this.rankingLoading ? `
