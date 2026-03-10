@@ -24,7 +24,7 @@
       padding: 24px 20px 40px;
     }
     .panel {
-      width: min(820px, 100%);
+      width: min(960px, 100%);
       margin: 0 auto;
       background: var(--panel);
       border: 1px solid rgba(148, 163, 184, 0.28);
@@ -53,6 +53,7 @@
     input[readonly] { opacity: 0.55; cursor: default; }
     .split { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .split3 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; }
+    .split5 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr 1fr; gap: 10px; }
     .btns { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
     button, .link {
       border: 1px solid transparent;
@@ -83,6 +84,7 @@
       font-size: 12px;
       color: var(--muted);
     }
+
     /* Season list */
     .season-list { display: grid; gap: 8px; }
     .season-item {
@@ -112,7 +114,78 @@
       font-weight: 600;
       color: #5eead4;
     }
-    @media (max-width: 640px) { .split, .split3 { grid-template-columns: 1fr; } }
+
+    /* === Bulk creation table === */
+    .bulk-section {
+      margin-top: 8px;
+      padding: 20px;
+      border-radius: var(--radius);
+      background: rgba(14,165,233,0.05);
+      border: 1px solid rgba(14,165,233,0.2);
+    }
+    .bulk-controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 10px;
+      align-items: end;
+      margin-bottom: 16px;
+    }
+    .bulk-preview-wrap {
+      overflow-x: auto;
+      margin-top: 4px;
+    }
+    .bulk-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      min-width: 680px;
+    }
+    .bulk-table th {
+      background: rgba(14,165,233,0.12);
+      color: var(--muted);
+      font-weight: 600;
+      padding: 8px 10px;
+      text-align: left;
+      border-bottom: 1px solid rgba(148,163,184,0.2);
+      white-space: nowrap;
+    }
+    .bulk-table td {
+      padding: 6px 6px;
+      border-bottom: 1px solid rgba(148,163,184,0.1);
+      vertical-align: middle;
+    }
+    .bulk-table tr:last-child td { border-bottom: none; }
+    .bulk-table tr.skip-row { opacity: 0.38; }
+    .bulk-table input, .bulk-table select {
+      height: 34px;
+      font-size: 12px;
+      padding: 0 8px;
+      border-radius: 8px;
+    }
+    .bulk-table input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      padding: 0;
+      cursor: pointer;
+      accent-color: var(--accent);
+    }
+    .row-date-range { font-size: 12px; color: var(--muted); white-space: nowrap; }
+    .row-label-preview { font-size: 12px; color: #5eead4; white-space: nowrap; }
+    .conflict-badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 6px;
+      background: rgba(239,68,68,0.2);
+      color: #fca5a5;
+      white-space: nowrap;
+    }
+    .bulk-actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; align-items: center; }
+    .bulk-count { font-size: 13px; color: var(--muted); margin-left: auto; }
+
+    @media (max-width: 640px) {
+      .split, .split3, .split5 { grid-template-columns: 1fr; }
+      .bulk-controls { grid-template-columns: 1fr 1fr; }
+    }
   </style>
 </head>
 <body>
@@ -126,7 +199,79 @@
       <p class="empty-msg">読み込み中...</p>
     </div>
 
-    <h2 style="margin-top: 28px;">シーズンを追加</h2>
+    <!-- ===== 一括作成 ===== -->
+    <h2 style="margin-top: 28px;">📅 週間ステージを一括作成</h2>
+    <p class="muted" style="margin-bottom: 12px;">月曜日を起点に複数週を一度に作りだめできます。各行を個別に編集してから「まとめて追加」してください。</p>
+
+    <div class="bulk-section">
+      <div class="bulk-controls">
+        <div class="row">
+          <label>開始月曜日</label>
+          <input id="bulkStart" type="date" />
+        </div>
+        <div class="row">
+          <label>週数</label>
+          <input id="bulkWeeks" type="number" min="1" max="52" value="4" />
+        </div>
+        <div class="row">
+          <label>デフォルト: モード</label>
+          <select id="bulkGameMode">
+            <option value="normal">通常モード</option>
+            <option value="legal">法律用語モード</option>
+          </select>
+        </div>
+        <div class="row">
+          <label>デフォルト: Real Mode</label>
+          <select id="bulkRealMode">
+            <option value="true">ON</option>
+            <option value="false">OFF</option>
+          </select>
+        </div>
+        <div class="row">
+          <label>制限時間(秒)</label>
+          <input id="bulkDuration" type="number" min="30" max="300" value="60" />
+        </div>
+        <div class="row">
+          <label>ライフ</label>
+          <input id="bulkLives" type="number" min="1" max="10" value="3" />
+        </div>
+        <div class="row">
+          <label>&nbsp;</label>
+          <button type="button" id="bulkGenerateBtn" class="secondary" style="height:42px;">プレビュー生成</button>
+        </div>
+      </div>
+      <div id="bulkWarnMsg" class="warn-msg" style="display:none;">⚠️ 月曜日以外が選択されています。月曜始まりを推奨します。</div>
+
+      <div id="bulkTableWrap" class="bulk-preview-wrap" style="display:none;">
+        <table class="bulk-table">
+          <thead>
+            <tr>
+              <th style="width:36px;">追加</th>
+              <th>期間</th>
+              <th>表示名</th>
+              <th>モード</th>
+              <th style="width:80px;">制限(秒)</th>
+              <th style="width:70px;">ライフ</th>
+              <th style="width:80px;">Real</th>
+              <th style="width:60px;">状態</th>
+            </tr>
+          </thead>
+          <tbody id="bulkTableBody"></tbody>
+        </table>
+
+        <div class="bulk-actions">
+          <button type="button" id="bulkSelectAll" class="secondary" style="height:34px;padding:0 12px;font-size:12px;">全選択</button>
+          <button type="button" id="bulkSelectNone" class="secondary" style="height:34px;padding:0 12px;font-size:12px;">全解除</button>
+          <button type="button" id="bulkApplyDefaults" class="secondary" style="height:34px;padding:0 12px;font-size:12px;">デフォルト値を再適用</button>
+          <button type="button" id="bulkAddBtn" class="primary" style="height:38px;">まとめて追加</button>
+          <span id="bulkCount" class="bulk-count"></span>
+        </div>
+        <div id="bulkStatus" class="status"></div>
+      </div>
+    </div>
+
+    <!-- ===== 1件追加 ===== -->
+    <h2 style="margin-top: 28px;">シーズンを1件追加</h2>
     <div class="grid">
       <div class="split">
         <div class="row">
@@ -327,7 +472,7 @@
       }
     };
 
-    // ---- Add Season Form ----
+    // ---- Add Season Form (single) ----
     const newStartDateEl = document.getElementById('newStartDate');
     const newEndDateEl = document.getElementById('newEndDate');
     const newMondayWarn = document.getElementById('newMondayWarn');
@@ -387,6 +532,202 @@
       } catch (e) {
         console.error(e);
         setSeasonStatus('保存に失敗しました。', 'err');
+      }
+    });
+
+    // ===== Bulk Creation =====
+    let bulkRows = []; // { startDate, endDate, weekLabel, gameMode, duration, lives, realMode, include, conflict }
+
+    const getBulkDefaults = () => ({
+      gameMode: document.getElementById('bulkGameMode').value,
+      realMode: document.getElementById('bulkRealMode').value === 'true',
+      duration: Math.min(300, Math.max(30, Number(document.getElementById('bulkDuration').value) || 60)),
+      lives: Math.min(10, Math.max(1, Number(document.getElementById('bulkLives').value) || 3)),
+    });
+
+    const generateBulkRows = () => {
+      const startVal = document.getElementById('bulkStart').value;
+      const weeks = Math.min(52, Math.max(1, Number(document.getElementById('bulkWeeks').value) || 4));
+      if (!startVal) return;
+
+      const start = new Date(startVal + 'T00:00:00');
+      document.getElementById('bulkWarnMsg').style.display = start.getDay() === 1 ? 'none' : '';
+
+      const defaults = getBulkDefaults();
+      bulkRows = [];
+
+      for (let i = 0; i < weeks; i++) {
+        const weekStart = addDays(start, i * 7);
+        const weekEnd = addDays(weekStart, 6);
+        const startDate = toDateString(weekStart);
+        const endDate = toDateString(weekEnd);
+        const weekLabel = buildSeasonLabel(startDate, endDate);
+        const conflict = seasons.some(s => s.startDate === startDate);
+        bulkRows.push({
+          startDate, endDate, weekLabel,
+          gameMode: defaults.gameMode,
+          duration: defaults.duration,
+          lives: defaults.lives,
+          realMode: defaults.realMode,
+          include: !conflict,
+          conflict,
+        });
+      }
+      renderBulkTable();
+    };
+
+    const renderBulkTable = () => {
+      const tbody = document.getElementById('bulkTableBody');
+      tbody.innerHTML = bulkRows.map((row, i) => `
+        <tr class="${!row.include ? 'skip-row' : ''}">
+          <td style="text-align:center;">
+            <input type="checkbox" ${row.include ? 'checked' : ''} data-bi="${i}" />
+          </td>
+          <td>
+            <div class="row-date-range">${row.startDate} 〜 ${row.endDate}</div>
+            <div class="row-label-preview">${row.weekLabel}</div>
+          </td>
+          <td>
+            <select data-field="gameMode" data-bi="${i}">
+              <option value="normal" ${row.gameMode === 'normal' ? 'selected' : ''}>通常</option>
+              <option value="legal" ${row.gameMode === 'legal' ? 'selected' : ''}>法律</option>
+            </select>
+          </td>
+          <td>
+            <input type="number" min="30" max="300" value="${row.duration}" data-field="duration" data-bi="${i}" style="width:72px;" />
+          </td>
+          <td>
+            <input type="number" min="1" max="10" value="${row.lives}" data-field="lives" data-bi="${i}" style="width:56px;" />
+          </td>
+          <td>
+            <select data-field="realMode" data-bi="${i}" style="width:70px;">
+              <option value="true" ${row.realMode ? 'selected' : ''}>ON</option>
+              <option value="false" ${!row.realMode ? 'selected' : ''}>OFF</option>
+            </select>
+          </td>
+          <td>
+            ${row.conflict ? '<span class="conflict-badge">重複</span>' : ''}
+          </td>
+        </tr>
+      `).join('');
+
+      // checkbox
+      tbody.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+        cb.addEventListener('change', (e) => {
+          const i = Number(e.target.dataset.bi);
+          bulkRows[i].include = e.target.checked;
+          const tr = e.target.closest('tr');
+          tr.classList.toggle('skip-row', !e.target.checked);
+          updateBulkCount();
+        });
+      });
+
+      // field edits
+      tbody.querySelectorAll('[data-field]').forEach(el => {
+        el.addEventListener('change', (e) => {
+          const i = Number(e.target.dataset.bi);
+          const field = e.target.dataset.field;
+          let val = e.target.value;
+          if (field === 'duration') val = Math.min(300, Math.max(30, Number(val) || 60));
+          if (field === 'lives') val = Math.min(10, Math.max(1, Number(val) || 3));
+          if (field === 'realMode') val = val === 'true';
+          bulkRows[i][field] = val;
+        });
+      });
+
+      document.getElementById('bulkTableWrap').style.display = '';
+      updateBulkCount();
+    };
+
+    const updateBulkCount = () => {
+      const checked = bulkRows.filter(r => r.include).length;
+      document.getElementById('bulkCount').textContent = `${checked} 件を追加予定`;
+    };
+
+    document.getElementById('bulkGenerateBtn').addEventListener('click', () => {
+      if (!document.getElementById('bulkStart').value) {
+        document.getElementById('bulkStatus').textContent = '開始月曜日を選択してください。';
+        document.getElementById('bulkStatus').className = 'status err';
+        return;
+      }
+      generateBulkRows();
+    });
+
+    // Auto-regenerate preview when defaults change
+    ['bulkGameMode', 'bulkRealMode', 'bulkDuration', 'bulkLives'].forEach(id => {
+      document.getElementById(id).addEventListener('change', () => {
+        if (bulkRows.length > 0) generateBulkRows();
+      });
+    });
+
+    document.getElementById('bulkStart').addEventListener('change', () => {
+      if (bulkRows.length > 0) generateBulkRows();
+    });
+    document.getElementById('bulkWeeks').addEventListener('change', () => {
+      if (bulkRows.length > 0) generateBulkRows();
+    });
+
+    document.getElementById('bulkSelectAll').addEventListener('click', () => {
+      bulkRows.forEach(r => { r.include = true; });
+      renderBulkTable();
+    });
+    document.getElementById('bulkSelectNone').addEventListener('click', () => {
+      bulkRows.forEach(r => { r.include = false; });
+      renderBulkTable();
+    });
+    document.getElementById('bulkApplyDefaults').addEventListener('click', () => {
+      const defaults = getBulkDefaults();
+      bulkRows.forEach(r => {
+        r.gameMode = defaults.gameMode;
+        r.duration = defaults.duration;
+        r.lives = defaults.lives;
+        r.realMode = defaults.realMode;
+      });
+      renderBulkTable();
+    });
+
+    const setBulkStatus = (msg, type = '') => {
+      const el = document.getElementById('bulkStatus');
+      el.textContent = msg;
+      el.className = `status ${type}`.trim();
+    };
+
+    document.getElementById('bulkAddBtn').addEventListener('click', async () => {
+      const toAdd = bulkRows.filter(r => r.include);
+      if (toAdd.length === 0) { setBulkStatus('追加対象がありません。チェックを入れてください。', 'err'); return; }
+
+      const conflicts = toAdd.filter(r => seasons.some(s => s.startDate === r.startDate));
+      if (conflicts.length > 0) {
+        const labels = conflicts.map(r => r.startDate).join(', ');
+        if (!confirm(`以下の開始日は既に登録されています。スキップしますか？\n${labels}`)) return;
+      }
+
+      let added = 0;
+      for (const row of toAdd) {
+        if (seasons.some(s => s.startDate === row.startDate)) continue;
+        seasons.push({
+          startDate: row.startDate,
+          endDate: row.endDate,
+          weekLabel: row.weekLabel,
+          gameMode: row.gameMode,
+          duration: row.duration,
+          lives: row.lives,
+          realMode: row.realMode,
+        });
+        added++;
+      }
+
+      renderSeasonList();
+      setBulkStatus(`${added}件を追加しました。保存中...`, 'ok');
+
+      try {
+        await saveSeasons();
+        setBulkStatus(`${added}件を追加・保存しました！`, 'ok');
+        // Re-generate to update conflict markers
+        generateBulkRows();
+      } catch (e) {
+        console.error(e);
+        setBulkStatus('保存に失敗しました。', 'err');
       }
     });
 

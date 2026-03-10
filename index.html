@@ -1214,14 +1214,20 @@ const LEGAL_WORDS = [
                     // Try season schedule first
                     const scheduleSnap = await getDoc(doc(db, ...SEASON_SCHEDULE_DOC));
                     if (scheduleSnap.exists()) {
-                        const currentSeason = findCurrentSeason(scheduleSnap.data().seasons || []);
+                        const allSeasons = scheduleSnap.data().seasons || [];
+                        const currentSeason = findCurrentSeason(allSeasons);
                         if (currentSeason) {
                             const normalized = normalizeWeeklyRankingSettings(currentSeason);
+                            const sortedSeasons = [...allSeasons].sort((a, b) => a.startDate.localeCompare(b.startDate));
+                            const seasonNumber = sortedSeasons.findIndex(s => s.startDate === currentSeason.startDate) + 1;
                             this.rankingModeSettings = {
                                 ...defaults,
                                 ...normalized,
                                 weekKey: currentSeason.startDate,
-                                weekLabel: currentSeason.weekLabel
+                                weekLabel: currentSeason.weekLabel,
+                                seasonNumber,
+                                seasonStartDate: currentSeason.startDate,
+                                seasonEndDate: currentSeason.endDate,
                             };
                             return;
                         }
@@ -1316,13 +1322,13 @@ const LEGAL_WORDS = [
                 if (this.isPaused) return;
 
                 if (this.gameState === 'ranking-intro') {
-                    if (e.key === 'Shift') { e.preventDefault(); this.startGame('ranking'); }
+                    if (e.code === 'Space') { e.preventDefault(); this.startGame('ranking'); }
                     else if (e.key === 'Escape') { this.gameState = 'menu'; this.render(); }
                     return;
                 }
 
                 if (this.gameState === 'ranking-finished') {
-                    if (e.code === 'Space') { e.preventDefault(); this.gameState = 'ranking-intro'; this.render(); }
+                    if (e.code === 'Space') { e.preventDefault(); this.startGame('ranking'); }
                     return;
                 }
 
@@ -1834,10 +1840,7 @@ const LEGAL_WORDS = [
                 if (rankingIntroViewBtn) rankingIntroViewBtn.onclick = () => this.openRankingModal();
 
                 const rankingFinishedRetryBtn = document.getElementById('rankingFinishedRetryBtn');
-                if (rankingFinishedRetryBtn) rankingFinishedRetryBtn.onclick = () => {
-                    this.gameState = 'ranking-intro';
-                    this.render();
-                };
+                if (rankingFinishedRetryBtn) rankingFinishedRetryBtn.onclick = () => this.startGame('ranking');
 
                 const rankingFinishedMenuBtn = document.getElementById('rankingFinishedMenuBtn');
                 if (rankingFinishedMenuBtn) rankingFinishedMenuBtn.onclick = () => {
@@ -2130,58 +2133,72 @@ const LEGAL_WORDS = [
                 const hearts = Array.from({ length: lives }).map((_, i) =>
                     `<span class="life-heart">${this.renderIcon('heart')}</span>`
                 ).join('');
+                const seasonBadge = (() => {
+                    if (!s.seasonNumber || !s.seasonStartDate || !s.seasonEndDate) return '';
+                    const sd = new Date(s.seasonStartDate + 'T00:00:00');
+                    const ed = new Date(s.seasonEndDate + 'T00:00:00');
+                    const label = `第${s.seasonNumber}回（${sd.getMonth()+1}/${sd.getDate()}～${ed.getMonth()+1}/${ed.getDate()}）`;
+                    return `<div class="text-sm font-bold" style="color: rgba(250,204,21,0.8);">${label}</div>`;
+                })();
 
                 return `
                     <div class="app-shell ranking-theme flex flex-col items-center justify-center p-4 font-sans select-none relative overflow-hidden">
+                        <div style="position:absolute;top:-100px;left:50%;transform:translateX(-50%);width:600px;height:500px;background:radial-gradient(ellipse,rgba(250,204,21,0.08) 0%,transparent 65%);pointer-events:none;"></div>
                         ${this.showRanking ? this.renderRankingModal() : ''}
-                        <div class="max-w-md w-full space-y-6 animate-in zoom-in-95 duration-300">
+                        <div class="max-w-md w-full space-y-5 animate-in zoom-in-95 duration-300 relative">
+                            <!-- Header -->
                             <div class="text-center space-y-2">
                                 <div class="text-5xl mb-2">${this.renderIcon('trophy')}</div>
                                 <h1 class="text-4xl font-black" style="color: #facc15;">ランキングモード</h1>
+                                ${seasonBadge}
                                 <p class="text-sm" style="color: rgba(250,204,21,0.65);">スコアが記録されます — 全期間集計</p>
                             </div>
 
-                            <div class="app-panel p-5 space-y-4">
-                                <div class="text-xs font-bold tracking-widest" style="color: rgba(250,204,21,0.55);">RULES</div>
-                                <div class="grid grid-cols-2 gap-3">
-                                    <div class="rounded-xl p-3 text-center" style="background: rgba(250,204,21,0.07); border: 1px solid rgba(250,204,21,0.18);">
-                                        <div class="text-xs mb-1" style="color: rgba(250,204,21,0.55);">ゲームモード</div>
-                                        <div class="font-bold" style="color: #fde68a;">${gameMode}</div>
+                            <!-- Rules card -->
+                            <div class="rounded-2xl overflow-hidden" style="border:1px solid rgba(250,204,21,0.18);">
+                                <div class="px-5 py-3" style="background:rgba(250,204,21,0.07);border-bottom:1px solid rgba(250,204,21,0.12);">
+                                    <span class="text-xs font-bold tracking-widest" style="color:rgba(250,204,21,0.55);">RULES</span>
+                                </div>
+                                <div class="grid grid-cols-2" style="background:rgba(255,255,255,0.025);">
+                                    <div class="p-4 text-center" style="border-right:1px solid rgba(250,204,21,0.1);border-bottom:1px solid rgba(250,204,21,0.1);">
+                                        <div class="text-xs mb-2" style="color:rgba(250,204,21,0.45);">ゲームモード</div>
+                                        <div class="font-black text-sm" style="color:#fde68a;">${gameMode}</div>
                                     </div>
-                                    <div class="rounded-xl p-3 text-center" style="background: rgba(250,204,21,0.07); border: 1px solid rgba(250,204,21,0.18);">
-                                        <div class="text-xs mb-1" style="color: rgba(250,204,21,0.55);">制限時間</div>
-                                        <div class="font-bold" style="color: #fde68a;">${duration}秒</div>
+                                    <div class="p-4 text-center" style="border-bottom:1px solid rgba(250,204,21,0.1);">
+                                        <div class="text-xs mb-2" style="color:rgba(250,204,21,0.45);">制限時間</div>
+                                        <div class="font-black text-sm" style="color:#fde68a;">${duration}秒</div>
                                     </div>
-                                    <div class="rounded-xl p-3 text-center" style="background: rgba(250,204,21,0.07); border: 1px solid rgba(250,204,21,0.18);">
-                                        <div class="text-xs mb-1" style="color: rgba(250,204,21,0.55);">ライフ</div>
-                                        <div class="font-bold flex justify-center life-hearts">${hearts}</div>
+                                    <div class="p-4 text-center" style="border-right:1px solid rgba(250,204,21,0.1);">
+                                        <div class="text-xs mb-2" style="color:rgba(250,204,21,0.45);">ライフ</div>
+                                        <div class="font-black flex justify-center life-hearts">${hearts}</div>
                                     </div>
-                                    <div class="rounded-xl p-3 text-center" style="background: rgba(250,204,21,0.07); border: 1px solid rgba(250,204,21,0.18);">
-                                        <div class="text-xs mb-1" style="color: rgba(250,204,21,0.55);">real type mode</div>
-                                        <div class="font-bold" style="color: #fde68a;">ON</div>
+                                    <div class="p-4 text-center">
+                                        <div class="text-xs mb-2" style="color:rgba(250,204,21,0.45);">real type mode</div>
+                                        <div class="font-black text-sm" style="color:#4ade80;">ON</div>
                                     </div>
                                 </div>
                             </div>
 
+                            <!-- Buttons -->
                             <div class="flex flex-col gap-3">
                                 <button id="rankingIntroStartBtn" class="w-full px-8 py-4 text-xl font-black app-btn-accent flex items-center justify-center gap-3">
                                     ${this.renderIcon('play')} スタート
-                                    <span class="text-sm font-normal opacity-60">(Shift)</span>
+                                    <span class="text-sm font-normal opacity-60">(Space)</span>
                                 </button>
                                 <div class="flex gap-3">
-                                    <button id="rankingIntroViewBtn" class="flex-1 py-3 app-btn-secondary flex items-center justify-center gap-2 text-sm">
+                                    <button id="rankingIntroViewBtn" class="flex-1 py-3 app-btn-secondary flex items-center justify-center gap-2 text-sm font-bold">
                                         ${this.renderIcon('list')} ランキングを見る
                                     </button>
-                                    <button id="rankingIntroBackBtn" class="flex-1 py-3 app-btn-secondary text-sm">
+                                    <button id="rankingIntroBackBtn" class="flex-1 py-3 app-btn-secondary text-sm font-bold">
                                         戻る
                                     </button>
                                 </div>
                             </div>
                             <div class="text-center text-xs font-mono" style="color: rgba(250,204,21,0.35);">
-                                Press [Shift] to Start · [Esc] to Back
+                                Press [Space] to Start · [Esc] to Back
                             </div>
                         </div>
-                        <div class="absolute bottom-4 right-4 text-xs font-mono select-none" style="color: rgba(250,204,21,0.3);">
+                        <div class="absolute bottom-4 right-4 text-xs font-mono select-none" style="color:rgba(250,204,21,0.25);">
                             © Tadashi Kotegawa
                         </div>
                     </div>
@@ -2189,13 +2206,16 @@ const LEGAL_WORDS = [
             }
 
             renderRankingFinished() {
+                const myEntry = this.rankings.find(item => this.isPlayerRankingEntry(item));
+                const myRank = myEntry ? myEntry.rank : null;
+                const rankMedal = myRank === 1 ? '🥇' : myRank === 2 ? '🥈' : myRank === 3 ? '🥉' : null;
                 return `
                     <div class="app-shell ranking-theme flex flex-col items-center justify-center p-4 font-sans select-none relative overflow-hidden">
                         <div class="max-w-3xl w-full space-y-4 animate-in zoom-in-95 duration-300">
                             <div class="text-center space-y-1">
-                                <h2 class="text-2xl font-bold flex items-center justify-center gap-2" style="color: #facc15;">
-                                    ${this.renderIcon('trophy')} ランキングモード 結果
-                                </h2>
+                                <div class="text-xs font-bold tracking-[0.25em] mb-2" style="color:rgba(250,204,21,0.45);">— RANKING MODE —</div>
+                                <h2 class="text-4xl font-black tracking-tight" style="color:#facc15;text-shadow:0 0 40px rgba(250,204,21,0.35);">RESULT</h2>
+                                ${myRank ? `<div class="inline-flex items-center gap-2 mt-2 px-4 py-1 rounded-full text-sm font-bold" style="background:rgba(250,204,21,0.12);border:1px solid rgba(250,204,21,0.35);color:#fde68a;">${rankMedal ? rankMedal + ' ' : ''}あなたのランク <span style="color:#facc15;font-size:1.15em;">#${myRank}</span></div>` : ''}
                             </div>
 
                             <div class="grid gap-4 items-start" style="grid-template-columns: 1fr 1fr;">
@@ -2257,7 +2277,7 @@ const LEGAL_WORDS = [
                                 </div>
                             </div>
                         </div>
-                        <div class="absolute bottom-4 right-4 text-xs font-mono select-none" style="color: rgba(250,204,21,0.3);">
+                        <div class="absolute bottom-4 right-4 text-xs font-mono select-none" style="color:rgba(250,204,21,0.25);">
                             © Tadashi Kotegawa
                         </div>
                     </div>
