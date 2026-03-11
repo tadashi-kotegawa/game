@@ -62,6 +62,11 @@ body { margin: 0; padding: 0; font-family: 'Inter', ui-sans-serif, system-ui, -a
 .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
 @keyframes zoomIn { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: scale(1); } }
 .zoom-in-95 { animation: zoomIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+@keyframes hsGlow {
+    0%, 100% { box-shadow: 0 0 12px rgba(250,204,21,0.5), 0 0 28px rgba(250,204,21,0.2); }
+    50% { box-shadow: 0 0 22px rgba(250,204,21,0.9), 0 0 48px rgba(250,204,21,0.4); }
+}
+.animate-hs-glow { animation: hsGlow 2s ease-in-out infinite; }
 /* Glow Effects */
 .combo-glow-1 { text-shadow: 0 0 12px rgba(250, 204, 21, 0.4); }
 .combo-glow-2 { text-shadow: 0 0 16px rgba(129, 140, 248, 0.6); color: #818cf8 !important; }
@@ -1262,6 +1267,15 @@ const LEGAL_WORDS = [
                 localStorage.setItem('neoTypeMissStats', JSON.stringify(this.missStats));
             }
 
+            loadHighScore() {
+                const saved = localStorage.getItem('neoTypeHighScore');
+                return saved ? parseInt(saved, 10) : 0;
+            }
+
+            saveHighScore(score) {
+                localStorage.setItem('neoTypeHighScore', String(score));
+            }
+
             loadFocusKeys() {
                 const saved = localStorage.getItem('neoTypeFocusKeys');
                 return saved ? JSON.parse(saved) : [];
@@ -1477,6 +1491,7 @@ const LEGAL_WORDS = [
                     const targetChar = node.selectedOption[node.input.length] || node.selectedOption[0];
                     if (targetChar) {
                         this.missStats[targetChar] = (this.missStats[targetChar] || 0) + 1;
+                        this.sessionMissCount = (this.sessionMissCount || 0) + 1;
                     }
 
                     if (this.currentRunMode === 'ranking' && !this.currentWordMissed) {
@@ -1546,6 +1561,8 @@ const LEGAL_WORDS = [
                 this.maxCombo = 0;
                 this.timeLeft = this.settings.duration;
                 this.feedback = null;
+                this.sessionMissCount = 0;
+                this.isNewHighScore = false;
                 this.rankingLivesLeft = this.currentRunMode === 'ranking' ? this.settings.lives : null;
                 this.pickNextWord();
                 this.startTimer();
@@ -1570,6 +1587,13 @@ const LEGAL_WORDS = [
                 if (this.timerInterval) clearInterval(this.timerInterval);
                 if (this.settings.sound) soundEngine.playSuccess();
                 this.saveMissStats();
+                if (this.currentRunMode === 'normal') {
+                    const prevHighScore = this.loadHighScore();
+                    if (this.score > prevHighScore) {
+                        this.isNewHighScore = true;
+                        this.saveHighScore(this.score);
+                    }
+                }
                 if (this.currentRunMode === 'ranking') {
                     this.gameState = 'ranking-finished';
                     this.rankingLoading = true;
@@ -2756,12 +2780,19 @@ const LEGAL_WORDS = [
                                 <h2 class="text-3xl font-bold text-white">Result</h2>
                             </div>
 
+                            ${this.isNewHighScore ? `
+                                <div class="animate-hs-glow rounded-2xl text-center py-4 px-6" style="background: linear-gradient(135deg, rgba(234,179,8,0.12) 0%, rgba(251,146,60,0.08) 100%); border: 1px solid rgba(250,204,21,0.45);">
+                                    <div class="text-2xl font-black tracking-widest" style="color: #fde047; text-shadow: 0 0 16px rgba(253,224,71,0.7), 0 0 32px rgba(253,224,71,0.3);">★ ハイスコア！ ★</div>
+                                    <div class="text-xs font-bold tracking-[0.3em] mt-1" style="color: rgba(253,224,71,0.6);">NEW HIGH SCORE</div>
+                                </div>
+                            ` : ''}
+
                             <div class="grid gap-4 items-start" style="grid-template-columns: 1fr 1fr;">
                                 <!-- Left: Score + stats + buttons -->
                                 <div class="app-panel p-6 space-y-5">
                                     <div class="text-center">
                                         <div class="text-xs mb-1 text-slate-500 uppercase tracking-wider">Score</div>
-                                        <div class="text-5xl font-black text-indigo-400">${this.score.toLocaleString()}</div>
+                                        <div class="text-5xl font-black" style="${this.isNewHighScore ? 'color: #fde047; text-shadow: 0 0 20px rgba(253,224,71,0.5);' : 'color: #818cf8;'}">${this.score.toLocaleString()}</div>
                                         <div class="text-sm text-slate-500 mt-1">pts</div>
                                     </div>
 
@@ -2771,9 +2802,9 @@ const LEGAL_WORDS = [
                                             <span class="text-xl font-bold text-yellow-400">${this.maxCombo}</span>
                                         </div>
                                         <div class="p-3 rounded-xl flex items-center justify-between" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(148,163,184,0.24);">
-                                            <span class="text-slate-400 flex items-center gap-2 text-sm">${this.renderIcon('alert-circle')} Total Misses</span>
+                                            <span class="text-slate-400 flex items-center gap-2 text-sm">${this.renderIcon('alert-circle')} Misses</span>
                                             <span class="text-xl font-bold text-red-400">
-                                                ${Object.values(this.missStats).reduce((a, b) => a + b, 0)}
+                                                ${this.sessionMissCount || 0}
                                             </span>
                                         </div>
                                     </div>
