@@ -393,7 +393,12 @@ body { margin: 0; padding: 0; font-family: 'Inter', ui-sans-serif, system-ui, -a
             'ぁ': ['xa', 'la'], 'ぃ': ['xi', 'li'], 'ぅ': ['xu', 'lu'], 'ぇ': ['xe', 'le'], 'ぉ': ['xo', 'lo'],
             'ゃ': ['xya', 'lya'], 'ゅ': ['xyu', 'lyu'], 'ょ': ['xyo', 'lyo'], 
             'っ': ['xtu', 'xtsu', 'ltsu', 'ltu'],
-            'ー': ['-']
+            'ー': ['-'],
+            '「': ['['],
+            '」': [']'],
+            '（': ['('],
+            '）': [')'],
+            '、': [',']
         };
 
         // --- Constants: COMBO_MAP ---
@@ -846,113 +851,113 @@ const INITIAL_WORDS = [
 
 // --- 法律用語リスト (Legal Terms) ---
 const LEGAL_WORDS_MINPO = [
-  { text: "信義則（1条2項）", kana: "しんぎそく" },
-  { text: "心裡留保（93条1項）", kana: "しんりりゅうほ" },
-  { text: "虚偽表示（94条1項）", kana: "きょぎひょうじ" },
-  { text: "錯誤（95条1項）", kana: "さくご" },
-  { text: "詐欺（96条1項）", kana: "さぎ" },
-  { text: "強迫（96条1項）", kana: "きょうはく" },
-  { text: "代理（99条1項）", kana: "だいり" },
-  { text: "無権代理（113条）", kana: "むけんだいり" },
-  { text: "対抗要件（177条）", kana: "たいこうようけん" },
-  { text: "第三者（177条）", kana: "だいさんしゃ" },
-  { text: "即時取得（192条）", kana: "そくじしゅとく" },
-  { text: "留置権（295条1項）", kana: "りゅうちけん" },
-  { text: "物上代位（372条）", kana: "ぶつじょうだいい" },
-  { text: "法定地上権（388条）", kana: "ほうていちじょうけん" },
-  { text: "履行遅滞（412条1項）", kana: "りこうちたい" },
-  { text: "履行不能（412条の2第1項）", kana: "りこうふのう" },
-  { text: "受領遅滞（413条1項）", kana: "じゅりょうちたい" },
-  { text: "損害賠償（415条1項）", kana: "そんがいばいしょう" },
-  { text: "解除（541条1項）", kana: "かいじょ" },
-  { text: "催告（541条1項）", kana: "さいこく" },
-  { text: "連帯債務（436条）", kana: "れんたいさいむ" },
-  { text: "保証（446条1項）", kana: "ほしょう" },
-  { text: "連帯保証（454条）", kana: "れんたいほしょう" },
-  { text: "相殺（505条1項）", kana: "そうさい" },
-  { text: "弁済（473条）", kana: "べんさい" },
-  { text: "代位弁済（499条）", kana: "だいいべんさい" },
-  { text: "債権譲渡（466条1項）", kana: "さいけんじょうと" },
-  { text: "債務引受（470条1項）", kana: "さいむひきうけ" },
-  { text: "同時履行の抗弁（533条）", kana: "どうじりこうのこうべん" },
-  { text: "危険負担（536条1項）", kana: "きけんふたん" },
-  { text: "契約不適合責任（562条1項）", kana: "けいやくふてきごうせきにん" },
-  { text: "請負（632条）", kana: "うけおい" },
-  { text: "不法行為（709条）", kana: "ふほうこうい" },
-  { text: "過失相殺（722条2項）", kana: "かしつそうさい" },
-  { text: "使用者責任（715条1項）", kana: "しようしゃせきにん" },
-  { text: "工作物責任（717条1項）", kana: "こうさくぶつせきにん" },
-  { text: "共同不法行為（719条1項）", kana: "きょうどうふほうこうい" },
-  { text: "不当利得（703条）", kana: "ふとうりとく" },
-  { text: "相続（882条）", kana: "そうぞく" },
-  { text: "遺言（960条）", kana: "いごん" },
-  { text: "後見（838条）", kana: "こうけん" },
-  { text: "婚姻（739条1項）", kana: "こんいん" },
-  { text: "離婚（763条）", kana: "りこん" },
+  { text: "「信義則」（1条2項）", kana: "「しんぎそく」（1じょう2こう）" },
+  { text: "「心裡留保」（93条1項）", kana: "「しんりりゅうほ」（93じょう1こう）" },
+  { text: "「虚偽表示」（94条1項）", kana: "「きょぎひょうじ」（94じょう1こう）" },
+  { text: "「錯誤」（95条1項）", kana: "「さくご」（95じょう1こう）" },
+  { text: "「詐欺」（96条1項）", kana: "「さぎ」（96じょう1こう）" },
+  { text: "「強迫」（96条1項）", kana: "「きょうはく」（96じょう1こう）" },
+  { text: "「代理」（99条1項）", kana: "「だいり」（99じょう1こう）" },
+  { text: "「無権代理」（113条）", kana: "「むけんだいり」（113じょう）" },
+  { text: "「対抗要件」（177条）", kana: "「たいこうようけん」（177じょう）" },
+  { text: "「第三者」（177条）", kana: "「だいさんしゃ」（177じょう）" },
+  { text: "「即時取得」（192条）", kana: "「そくじしゅとく」（192じょう）" },
+  { text: "「留置権」（295条1項）", kana: "「りゅうちけん」（295じょう1こう）" },
+  { text: "「物上代位」（372条）", kana: "「ぶつじょうだいい」（372じょう）" },
+  { text: "「法定地上権」（388条）", kana: "「ほうていちじょうけん」（388じょう）" },
+  { text: "「履行遅滞」（412条1項）", kana: "「りこうちたい」（412じょう1こう）" },
+  { text: "「履行不能」（412条の2第1項）", kana: "「りこうふのう」（412じょうの2だい1こう）" },
+  { text: "「受領遅滞」（413条1項）", kana: "「じゅりょうちたい」（413じょう1こう）" },
+  { text: "「損害賠償」（415条1項）", kana: "「そんがいばいしょう」（415じょう1こう）" },
+  { text: "「解除」（541条1項）", kana: "「かいじょ」（541じょう1こう）" },
+  { text: "「催告」（541条1項）", kana: "「さいこく」（541じょう1こう）" },
+  { text: "「連帯債務」（436条）", kana: "「れんたいさいむ」（436じょう）" },
+  { text: "「保証」（446条1項）", kana: "「ほしょう」（446じょう1こう）" },
+  { text: "「連帯保証」（454条）", kana: "「れんたいほしょう」（454じょう）" },
+  { text: "「相殺」（505条1項）", kana: "「そうさい」（505じょう1こう）" },
+  { text: "「弁済」（473条）", kana: "「べんさい」（473じょう）" },
+  { text: "「代位弁済」（499条）", kana: "「だいいべんさい」（499じょう）" },
+  { text: "「債権譲渡」（466条1項）", kana: "「さいけんじょうと」（466じょう1こう）" },
+  { text: "「債務引受」（470条1項）", kana: "「さいむひきうけ」（470じょう1こう）" },
+  { text: "「同時履行の抗弁」（533条）", kana: "「どうじりこうのこうべん」（533じょう）" },
+  { text: "「危険負担」（536条1項）", kana: "「きけんふたん」（536じょう1こう）" },
+  { text: "「契約不適合責任」（562条1項）", kana: "「けいやくふてきごうせきにん」（562じょう1こう）" },
+  { text: "「請負」（632条）", kana: "「うけおい」（632じょう）" },
+  { text: "「不法行為」（709条）", kana: "「ふほうこうい」（709じょう）" },
+  { text: "「過失相殺」（722条2項）", kana: "「かしつそうさい」（722じょう2こう）" },
+  { text: "「使用者責任」（715条1項）", kana: "「しようしゃせきにん」（715じょう1こう）" },
+  { text: "「工作物責任」（717条1項）", kana: "「こうさくぶつせきにん」（717じょう1こう）" },
+  { text: "「共同不法行為」（719条1項）", kana: "「きょうどうふほうこうい」（719じょう1こう）" },
+  { text: "「不当利得」（703条）", kana: "「ふとうりとく」（703じょう）" },
+  { text: "「相続」（882条）", kana: "「そうぞく」（882じょう）" },
+  { text: "「遺言」（960条）", kana: "「いごん」（960じょう）" },
+  { text: "「後見」（838条）", kana: "「こうけん」（838じょう）" },
+  { text: "「婚姻」（739条1項）", kana: "「こんいん」（739じょう1こう）" },
+  { text: "「離婚」（763条）", kana: "「りこん」（763じょう）" },
 ];
 
 const LEGAL_WORDS_KEIHO = [
-  { text: "故意（38条1項）", kana: "こい" },
-  { text: "過失（38条1項）", kana: "かしつ" },
-  { text: "未遂（43条）", kana: "みすい" },
-  { text: "中止犯（43条ただし書）", kana: "ちゅうしはん" },
-  { text: "共同正犯（60条）", kana: "きょうどうせいはん" },
-  { text: "教唆犯（61条1項）", kana: "きょうさはん" },
-  { text: "幇助犯（62条1項）", kana: "ほうじょはん" },
-  { text: "正当防衛（36条1項）", kana: "せいとうぼうえい" },
-  { text: "過剰防衛（36条2項）", kana: "かじょうぼうえい" },
-  { text: "緊急避難（37条1項）", kana: "きんきゅうひなん" },
-  { text: "正当行為（35条）", kana: "せいとうこうい" },
-  { text: "心神喪失（39条1項）", kana: "しんしんそうしつ" },
-  { text: "心神耗弱（39条2項）", kana: "しんしんこうじゃく" },
-  { text: "殺人（199条）", kana: "さつじん" },
-  { text: "傷害（204条）", kana: "しょうがい" },
-  { text: "傷害致死（205条）", kana: "しょうがいちし" },
-  { text: "暴行（208条）", kana: "ぼうこう" },
-  { text: "脅迫（222条1項）", kana: "きょうはく" },
-  { text: "強盗（236条1項）", kana: "ごうとう" },
-  { text: "事後強盗（238条）", kana: "じごごうとう" },
-  { text: "窃取（235条）", kana: "せっしゅ" },
-  { text: "窃盗（235条）", kana: "せっとう" },
-  { text: "詐欺（246条1項）", kana: "さぎ" },
-  { text: "恐喝（249条1項）", kana: "きょうかつ" },
-  { text: "横領（252条1項）", kana: "おうりょう" },
-  { text: "業務上横領（253条）", kana: "ぎょうむじょうおうりょう" },
-  { text: "背任（247条）", kana: "はいにん" },
-  { text: "遺失物横領（254条）", kana: "いしつぶつおうりょう" },
-  { text: "器物損壊（261条）", kana: "きぶつそんかい" },
-  { text: "現住建造物等放火（108条）", kana: "げんじゅうけんぞうぶつとうほうか" },
-  { text: "名誉毀損（230条1項）", kana: "めいよきそん" },
-  { text: "住居侵入（130条前段）", kana: "じゅうきょしんにゅう" },
+  { text: "「故意」（38条1項）", kana: "「こい」（38じょう1こう）" },
+  { text: "「過失」（38条1項）", kana: "「かしつ」（38じょう1こう）" },
+  { text: "「未遂」（43条）", kana: "「みすい」（43じょう）" },
+  { text: "「中止犯」（43条ただし書）", kana: "「ちゅうしはん」（43じょうただしがき）" },
+  { text: "「共同正犯」（60条）", kana: "「きょうどうせいはん」（60じょう）" },
+  { text: "「教唆犯」（61条1項）", kana: "「きょうさはん」（61じょう1こう）" },
+  { text: "「幇助犯」（62条1項）", kana: "「ほうじょはん」（62じょう1こう）" },
+  { text: "「正当防衛」（36条1項）", kana: "「せいとうぼうえい」（36じょう1こう）" },
+  { text: "「過剰防衛」（36条2項）", kana: "「かじょうぼうえい」（36じょう2こう）" },
+  { text: "「緊急避難」（37条1項）", kana: "「きんきゅうひなん」（37じょう1こう）" },
+  { text: "「正当行為」（35条）", kana: "「せいとうこうい」（35じょう）" },
+  { text: "「心神喪失」（39条1項）", kana: "「しんしんそうしつ」（39じょう1こう）" },
+  { text: "「心神耗弱」（39条2項）", kana: "「しんしんこうじゃく」（39じょう2こう）" },
+  { text: "「殺人」（199条）", kana: "「さつじん」（199じょう）" },
+  { text: "「傷害」（204条）", kana: "「しょうがい」（204じょう）" },
+  { text: "「傷害致死」（205条）", kana: "「しょうがいちし」（205じょう）" },
+  { text: "「暴行」（208条）", kana: "「ぼうこう」（208じょう）" },
+  { text: "「脅迫」（222条1項）", kana: "「きょうはく」（222じょう1こう）" },
+  { text: "「強盗」（236条1項）", kana: "「ごうとう」（236じょう1こう）" },
+  { text: "「事後強盗」（238条）", kana: "「じごごうとう」（238じょう）" },
+  { text: "「窃取」（235条）", kana: "「せっしゅ」（235じょう）" },
+  { text: "「窃盗」（235条）", kana: "「せっとう」（235じょう）" },
+  { text: "「詐欺」（246条1項）", kana: "「さぎ」（246じょう1こう）" },
+  { text: "「恐喝」（249条1項）", kana: "「きょうかつ」（249じょう1こう）" },
+  { text: "「横領」（252条1項）", kana: "「おうりょう」（252じょう1こう）" },
+  { text: "「業務上横領」（253条）", kana: "「ぎょうむじょうおうりょう」（253じょう）" },
+  { text: "「背任」（247条）", kana: "「はいにん」（247じょう）" },
+  { text: "「遺失物横領」（254条）", kana: "「いしつぶつおうりょう」（254じょう）" },
+  { text: "「器物損壊」（261条）", kana: "「きぶつそんかい」（261じょう）" },
+  { text: "「現住建造物等放火」（108条）", kana: "「げんじゅうけんぞうぶつとうほうか」（108じょう）" },
+  { text: "「名誉毀損」（230条1項）", kana: "「めいよきそん」（230じょう1こう）" },
+  { text: "「住居侵入」（130条前段）", kana: "「じゅうきょしんにゅう」（130じょうぜんだん）" },
 ];
 
 const LEGAL_WORDS_KENPO = [
-  { text: "基本的人権（11条）", kana: "きほんてきじんけん" },
-  { text: "公共の福祉（13条）", kana: "こうきょうのふくし" },
-  { text: "幸福追求権（13条）", kana: "こうふくついきゅうけん" },
-  { text: "法の下の平等（14条1項）", kana: "ほうのもとのびょうどう" },
-  { text: "思想良心の自由（19条）", kana: "しそうりょうしんのじゆう" },
-  { text: "信教の自由（20条1項）", kana: "しんきょうのじゆう" },
-  { text: "政教分離（20条3項）", kana: "せいきょうぶんり" },
-  { text: "表現の自由（21条1項）", kana: "ひょうげんのじゆう" },
-  { text: "検閲の禁止（21条2項）", kana: "けんえつのきんし" },
-  { text: "通信の秘密（21条2項）", kana: "つうしんのひみつ" },
-  { text: "学問の自由（23条）", kana: "がくもんのじゆう" },
-  { text: "居住移転の自由（22条1項）", kana: "きょじゅういてんのじゆう" },
-  { text: "職業選択の自由（22条1項）", kana: "しょくぎょうせんたくのじゆう" },
-  { text: "財産権（29条1項）", kana: "ざいさんけん" },
-  { text: "正当な補償（29条3項）", kana: "せいとうなほしょう" },
-  { text: "適正手続の保障（31条）", kana: "てきせいてつづきのほしょう" },
-  { text: "令状主義（35条1項）", kana: "れいじょうしゅぎ" },
-  { text: "黙秘権（38条1項）", kana: "もくひけん" },
-  { text: "自白法則（38条3項）", kana: "じはくほうそく" },
-  { text: "罪刑法定主義（31条）", kana: "ざいけいほうていしゅぎ" },
-  { text: "生存権（25条1項）", kana: "せいぞんけん" },
-  { text: "教育を受ける権利（26条1項）", kana: "きょういくをうけるけんり" },
-  { text: "勤労の権利（27条1項）", kana: "きんろうのけんり" },
-  { text: "労働基本権（28条）", kana: "ろうどうきほんけん" },
-  { text: "選挙権（15条1項）", kana: "せんきょけん" },
-  { text: "裁判を受ける権利（32条）", kana: "さいばんをうけるけんり" },
+  { text: "「基本的人権」（11条）", kana: "「きほんてきじんけん」（11じょう）" },
+  { text: "「公共の福祉」（13条）", kana: "「こうきょうのふくし」（13じょう）" },
+  { text: "「幸福追求権」（13条）", kana: "「こうふくついきゅうけん」（13じょう）" },
+  { text: "「法の下の平等」（14条1項）", kana: "「ほうのもとのびょうどう」（14じょう1こう）" },
+  { text: "「思想、良心の自由」（19条）", kana: "「しそう、りょうしんのじゆう」（19じょう）" },
+  { text: "「信教の自由」（20条1項）", kana: "「しんきょうのじゆう」（20じょう1こう）" },
+  { text: "「政教分離」（20条3項）", kana: "「せいきょうぶんり」（20じょう3こう）" },
+  { text: "「表現の自由」（21条1項）", kana: "「ひょうげんのじゆう」（21じょう1こう）" },
+  { text: "「検閲の禁止」（21条2項）", kana: "「けんえつのきんし」（21じょう2こう）" },
+  { text: "「通信の秘密」（21条2項）", kana: "「つうしんのひみつ」（21じょう2こう）" },
+  { text: "「学問の自由」（23条）", kana: "「がくもんのじゆう」（23じょう）" },
+  { text: "「居住、移転の自由」（22条1項）", kana: "「きょじゅう、いてんのじゆう」（22じょう1こう）" },
+  { text: "「職業選択の自由」（22条1項）", kana: "「しょくぎょうせんたくのじゆう」（22じょう1こう）" },
+  { text: "「財産権」（29条1項）", kana: "「ざいさんけん」（29じょう1こう）" },
+  { text: "「正当な補償」（29条3項）", kana: "「せいとうなほしょう」（29じょう3こう）" },
+  { text: "「適正手続の保障」（31条）", kana: "「てきせいてつづきのほしょう」（31じょう）" },
+  { text: "「令状主義」（35条1項）", kana: "「れいじょうしゅぎ」（35じょう1こう）" },
+  { text: "「黙秘権」（38条1項）", kana: "「もくひけん」（38じょう1こう）" },
+  { text: "「自白法則」（38条3項）", kana: "「じはくほうそく」（38じょう3こう）" },
+  { text: "「罪刑法定主義」（31条）", kana: "「ざいけいほうていしゅぎ」（31じょう）" },
+  { text: "「生存権」（25条1項）", kana: "「せいぞんけん」（25じょう1こう）" },
+  { text: "「教育を受ける権利」（26条1項）", kana: "「きょういくをうけるけんり」（26じょう1こう）" },
+  { text: "「勤労の権利」（27条1項）", kana: "「きんろうのけんり」（27じょう1こう）" },
+  { text: "「労働基本権」（28条）", kana: "「ろうどうきほんけん」（28じょう）" },
+  { text: "「選挙権」（15条1項）", kana: "「せんきょけん」（15じょう1こう）" },
+  { text: "「裁判を受ける権利」（32条）", kana: "「さいばんをうけるけんり」（32じょう）" },
 ];
 
 const LEGAL_WORDS = [...LEGAL_WORDS_MINPO, ...LEGAL_WORDS_KEIHO, ...LEGAL_WORDS_KENPO];
@@ -2526,85 +2531,88 @@ const _REMOVE_ME = [
                     ? `<span class="font-mono" style="color:var(--settings-accent);">${this.focusKeys.join(', ').toUpperCase()}</span>`
                     : '未選択（自動分析のみ）';
 
+                const gameSettingsPanel = `
+                    <div class="app-panel p-6 h-full">
+                        <div class="settings-section-title" style="margin-bottom:16px;">${this.renderIcon('sliders')} ゲーム設定</div>
+                        <div class="space-y-1">
+                            ${this.renderSettingRow('リアルタイピング', 'Backspaceで文字を削除できます',
+                                `<button id="normalRealModeToggle" class="toggle-btn">${this.renderSwitch(cfg.realMode)}</button>`
+                            )}
+                            ${this.renderSettingRow(
+                                '法律用語モード',
+                                cfg.legalMode
+                                    ? `<div class="flex gap-2 mt-1">${[
+                                        { key: 'all', label: '全科目' },
+                                        { key: 'minpo', label: '民法' },
+                                        { key: 'keiho', label: '刑法' },
+                                        { key: 'kenpo', label: '憲法' },
+                                      ].map(s => `<button id="normalSubject_${s.key}" class="segment-btn ${cfg.legalSubject === s.key ? 'active' : ''}">${s.label}</button>`).join('')}</div>`
+                                    : '法律・法学用語が出題されます',
+                                `<button id="normalLegalModeToggle" class="toggle-btn">${this.renderSwitch(cfg.legalMode)}</button>`
+                            )}
+                            ${this.renderSettingRow(
+                                'ミス回数制限（ライフ）',
+                                cfg.livesEnabled
+                                    ? `<div class="flex gap-2 mt-1">${liveCounts.map(n => `<button id="normalLives${n}" class="segment-btn ${cfg.lives === n ? 'active' : ''}">${n}</button>`).join('')}</div>`
+                                    : 'ミスするとライフが減ります',
+                                `<button id="normalLivesEnabledToggle" class="toggle-btn">${this.renderSwitch(cfg.livesEnabled)}</button>`
+                            )}
+                            ${this.renderSettingRow(
+                                '制限時間',
+                                'ラウンド時間を選択します',
+                                `<div class="segment-wrap segment-3">${durations.map(t => `<button id="normalDuration${t}" class="segment-btn ${cfg.duration === t ? 'active' : ''}">${t}s</button>`).join('')}</div>`
+                            )}
+                        </div>
+                    </div>
+                `;
+
+                const weakKeyPanel = `
+                    <div class="app-panel p-6 h-full">
+                        <div class="settings-section-title" style="margin-bottom:16px;">${this.renderIcon('target')} 苦手キー設定</div>
+                        <div class="space-y-1">
+                            ${this.renderSettingRow('重点キー選択', selectedKeys,
+                                `<button id="openKeyboardBtn" class="settings-btn" style="white-space:nowrap;">${this.renderIcon('keyboard')} キーボードから選択</button>`
+                            )}
+                            ${this.renderSettingRow('母音を除外', 'AIUEO を分析対象から外します',
+                                `<button id="ignoreVowelsSwitch" class="toggle-btn">${this.renderSwitch(this.settings.ignoreVowels)}</button>`
+                            )}
+                            ${this.renderSettingRow('苦手キー出現率', '重点キーが出現する割合',
+                                `<div class="slider-wrap"><input id="weakKeyRateSlider" type="range" min="0" max="1" step="0.1" value="${this.settings.weakKeyRate}" class="settings-slider" /><span class="slider-value">${weakRate}%</span></div>`
+                            )}
+                        </div>
+                    </div>
+                `;
+
                 return `
-                    <div class="app-shell flex flex-col items-center justify-center p-4 font-sans select-none relative overflow-hidden">
-                        <div style="position:absolute;top:-80px;left:50%;transform:translateX(-50%);width:500px;height:400px;background:radial-gradient(ellipse,rgba(99,102,241,0.10) 0%,transparent 65%);pointer-events:none;"></div>
+                    <div class="app-shell flex flex-col items-center justify-center p-8 font-sans select-none relative overflow-hidden">
+                        <div style="position:absolute;top:-120px;left:50%;transform:translateX(-50%);width:800px;height:600px;background:radial-gradient(ellipse,rgba(99,102,241,0.08) 0%,transparent 65%);pointer-events:none;"></div>
                         ${this.showKeyboardSelector ? this.renderKeyboardSelector() : ''}
 
-                        <div class="max-w-lg w-full space-y-4 animate-in zoom-in-95 duration-300 relative" style="max-height:95vh;overflow-y:auto;">
+                        <div class="w-full animate-in zoom-in-95 duration-300 relative" style="max-width:900px;">
                             <!-- Header -->
-                            <div class="text-center space-y-1 pt-2">
-                                <h1 class="text-4xl font-black text-white">通常モード</h1>
-                                <p class="text-sm" style="color:var(--settings-text-muted);">設定を選んでスタート</p>
+                            <div class="text-center mb-6">
+                                <h1 class="text-5xl font-black text-white tracking-tight">通常モード</h1>
+                                <p class="text-sm mt-2" style="color:var(--settings-text-muted);">設定を選んでスタート</p>
                             </div>
 
-                            <!-- Game settings card -->
-                            <div class="app-panel p-5 space-y-0">
-                                <div class="settings-section-title" style="margin-bottom:12px;">${this.renderIcon('sliders')} ゲーム設定</div>
-
-                                <!-- Real typing -->
-                                ${this.renderSettingRow(
-                                    'リアルタイピング',
-                                    'Backspaceで文字を削除できます',
-                                    `<button id="normalRealModeToggle" class="toggle-btn">${this.renderSwitch(cfg.realMode)}</button>`
-                                )}
-                                <!-- Legal mode -->
-                                ${this.renderSettingRow(
-                                    '法律用語モード',
-                                    cfg.legalMode
-                                        ? `<div class="flex gap-2 mt-1">
-                                            ${[
-                                                { key: 'all',    label: '全科目' },
-                                                { key: 'minpo',  label: '民法' },
-                                                { key: 'keiho',  label: '刑法' },
-                                                { key: 'kenpo',  label: '憲法' },
-                                            ].map(s => `<button id="normalSubject_${s.key}" class="segment-btn ${cfg.legalSubject === s.key ? 'active' : ''}">${s.label}</button>`).join('')}
-                                          </div>`
-                                        : '法律・法学用語が出題されます',
-                                    `<button id="normalLegalModeToggle" class="toggle-btn">${this.renderSwitch(cfg.legalMode)}</button>`
-                                )}
-                                <!-- Lives -->
-                                ${this.renderSettingRow(
-                                    'ミス回数制限（ライフ）',
-                                    cfg.livesEnabled
-                                        ? `<div class="flex gap-2 mt-1">${liveCounts.map(n => `<button id="normalLives${n}" class="segment-btn ${cfg.lives === n ? 'active' : ''}">${n}</button>`).join('')}</div>`
-                                        : 'ミスするとライフが減ります',
-                                    `<button id="normalLivesEnabledToggle" class="toggle-btn">${this.renderSwitch(cfg.livesEnabled)}</button>`
-                                )}
-                                <!-- Duration -->
-                                ${this.renderSettingRow(
-                                    '制限時間',
-                                    'ラウンド時間を選択します',
-                                    `<div class="segment-wrap segment-3">${durations.map(t => `<button id="normalDuration${t}" class="segment-btn ${cfg.duration === t ? 'active' : ''}">${t}s</button>`).join('')}</div>`
-                                )}
-                            </div>
-
-                            <!-- Weak key settings card -->
-                            <div class="app-panel p-5 space-y-0">
-                                <div class="settings-section-title" style="margin-bottom:12px;">${this.renderIcon('target')} 苦手キー設定</div>
-                                ${this.renderSettingRow(
-                                    '重点キー選択',
-                                    selectedKeys,
-                                    `<button id="openKeyboardBtn" class="settings-btn" style="white-space:nowrap;">${this.renderIcon('keyboard')} キーボードから選択</button>`
-                                )}
-                                ${this.renderSettingRow(
-                                    '母音を除外',
-                                    'AIUEO を分析対象から外します',
-                                    `<button id="ignoreVowelsSwitch" class="toggle-btn">${this.renderSwitch(this.settings.ignoreVowels)}</button>`
-                                )}
-                                ${this.renderSettingRow(
-                                    '苦手キー出現率',
-                                    '重点キーが出現する割合',
-                                    `<div class="slider-wrap"><input id="weakKeyRateSlider" type="range" min="0" max="1" step="0.1" value="${this.settings.weakKeyRate}" class="settings-slider" /><span class="slider-value">${weakRate}%</span></div>`
-                                )}
-                            </div>
+                            <!-- Settings grid -->
+                            ${cfg.legalMode ? `
+                                <div class="mb-5">${gameSettingsPanel}</div>
+                            ` : `
+                                <div class="grid grid-cols-2 gap-5 mb-5">
+                                    ${gameSettingsPanel}
+                                    ${weakKeyPanel}
+                                </div>
+                            `}
 
                             <!-- Start -->
-                            <div class="space-y-2 pb-4">
-                                <button id="normalSetupStartBtn" class="w-full app-btn-primary py-3 text-base font-bold">
+                            <div class="flex flex-col items-center gap-2">
+                                <button id="normalSetupStartBtn" class="app-btn-primary font-bold text-lg" style="width:320px;padding:14px 0;">
                                     ${this.renderIcon('play')} スタート
                                 </button>
-                                <div class="text-center text-xs font-mono" style="color:var(--settings-text-subtle);">Press [SPACE] to Start &nbsp;/&nbsp; [ESC] Back to Menu</div>
+                                <div class="text-xs font-mono" style="color:var(--settings-text-subtle);">
+                                    Press [SPACE] to Start &nbsp;/&nbsp; [ESC] Back to Menu
+                                </div>
                             </div>
                         </div>
 
