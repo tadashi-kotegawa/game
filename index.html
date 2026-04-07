@@ -363,6 +363,7 @@ body { margin: 0; padding: 0; font-family: 'Inter', ui-sans-serif, system-ui, -a
         const DEFAULT_NORMAL_MODE_CONFIG = {
             realMode: false,
             legalMode: false,
+            legalSubject: 'all',
             livesEnabled: false,
             lives: 3,
             duration: 60
@@ -844,8 +845,119 @@ const INITIAL_WORDS = [
 ];
 
 // --- 法律用語リスト (Legal Terms) ---
-const LEGAL_WORDS = [
-  // --- 民法 (Civil Law) ---
+const LEGAL_WORDS_MINPO = [
+  { text: "信義則（1条2項）", kana: "しんぎそく" },
+  { text: "心裡留保（93条1項）", kana: "しんりりゅうほ" },
+  { text: "虚偽表示（94条1項）", kana: "きょぎひょうじ" },
+  { text: "錯誤（95条1項）", kana: "さくご" },
+  { text: "詐欺（96条1項）", kana: "さぎ" },
+  { text: "強迫（96条1項）", kana: "きょうはく" },
+  { text: "代理（99条1項）", kana: "だいり" },
+  { text: "無権代理（113条）", kana: "むけんだいり" },
+  { text: "対抗要件（177条）", kana: "たいこうようけん" },
+  { text: "第三者（177条）", kana: "だいさんしゃ" },
+  { text: "即時取得（192条）", kana: "そくじしゅとく" },
+  { text: "留置権（295条1項）", kana: "りゅうちけん" },
+  { text: "物上代位（372条）", kana: "ぶつじょうだいい" },
+  { text: "法定地上権（388条）", kana: "ほうていちじょうけん" },
+  { text: "履行遅滞（412条1項）", kana: "りこうちたい" },
+  { text: "履行不能（412条の2第1項）", kana: "りこうふのう" },
+  { text: "受領遅滞（413条1項）", kana: "じゅりょうちたい" },
+  { text: "損害賠償（415条1項）", kana: "そんがいばいしょう" },
+  { text: "解除（541条1項）", kana: "かいじょ" },
+  { text: "催告（541条1項）", kana: "さいこく" },
+  { text: "連帯債務（436条）", kana: "れんたいさいむ" },
+  { text: "保証（446条1項）", kana: "ほしょう" },
+  { text: "連帯保証（454条）", kana: "れんたいほしょう" },
+  { text: "相殺（505条1項）", kana: "そうさい" },
+  { text: "弁済（473条）", kana: "べんさい" },
+  { text: "代位弁済（499条）", kana: "だいいべんさい" },
+  { text: "債権譲渡（466条1項）", kana: "さいけんじょうと" },
+  { text: "債務引受（470条1項）", kana: "さいむひきうけ" },
+  { text: "同時履行の抗弁（533条）", kana: "どうじりこうのこうべん" },
+  { text: "危険負担（536条1項）", kana: "きけんふたん" },
+  { text: "契約不適合責任（562条1項）", kana: "けいやくふてきごうせきにん" },
+  { text: "請負（632条）", kana: "うけおい" },
+  { text: "不法行為（709条）", kana: "ふほうこうい" },
+  { text: "過失相殺（722条2項）", kana: "かしつそうさい" },
+  { text: "使用者責任（715条1項）", kana: "しようしゃせきにん" },
+  { text: "工作物責任（717条1項）", kana: "こうさくぶつせきにん" },
+  { text: "共同不法行為（719条1項）", kana: "きょうどうふほうこうい" },
+  { text: "不当利得（703条）", kana: "ふとうりとく" },
+  { text: "相続（882条）", kana: "そうぞく" },
+  { text: "遺言（960条）", kana: "いごん" },
+  { text: "後見（838条）", kana: "こうけん" },
+  { text: "婚姻（739条1項）", kana: "こんいん" },
+  { text: "離婚（763条）", kana: "りこん" },
+];
+
+const LEGAL_WORDS_KEIHO = [
+  { text: "故意（38条1項）", kana: "こい" },
+  { text: "過失（38条1項）", kana: "かしつ" },
+  { text: "未遂（43条）", kana: "みすい" },
+  { text: "中止犯（43条ただし書）", kana: "ちゅうしはん" },
+  { text: "共同正犯（60条）", kana: "きょうどうせいはん" },
+  { text: "教唆犯（61条1項）", kana: "きょうさはん" },
+  { text: "幇助犯（62条1項）", kana: "ほうじょはん" },
+  { text: "正当防衛（36条1項）", kana: "せいとうぼうえい" },
+  { text: "過剰防衛（36条2項）", kana: "かじょうぼうえい" },
+  { text: "緊急避難（37条1項）", kana: "きんきゅうひなん" },
+  { text: "正当行為（35条）", kana: "せいとうこうい" },
+  { text: "心神喪失（39条1項）", kana: "しんしんそうしつ" },
+  { text: "心神耗弱（39条2項）", kana: "しんしんこうじゃく" },
+  { text: "殺人（199条）", kana: "さつじん" },
+  { text: "傷害（204条）", kana: "しょうがい" },
+  { text: "傷害致死（205条）", kana: "しょうがいちし" },
+  { text: "暴行（208条）", kana: "ぼうこう" },
+  { text: "脅迫（222条1項）", kana: "きょうはく" },
+  { text: "強盗（236条1項）", kana: "ごうとう" },
+  { text: "事後強盗（238条）", kana: "じごごうとう" },
+  { text: "窃取（235条）", kana: "せっしゅ" },
+  { text: "窃盗（235条）", kana: "せっとう" },
+  { text: "詐欺（246条1項）", kana: "さぎ" },
+  { text: "恐喝（249条1項）", kana: "きょうかつ" },
+  { text: "横領（252条1項）", kana: "おうりょう" },
+  { text: "業務上横領（253条）", kana: "ぎょうむじょうおうりょう" },
+  { text: "背任（247条）", kana: "はいにん" },
+  { text: "遺失物横領（254条）", kana: "いしつぶつおうりょう" },
+  { text: "器物損壊（261条）", kana: "きぶつそんかい" },
+  { text: "現住建造物等放火（108条）", kana: "げんじゅうけんぞうぶつとうほうか" },
+  { text: "名誉毀損（230条1項）", kana: "めいよきそん" },
+  { text: "住居侵入（130条前段）", kana: "じゅうきょしんにゅう" },
+];
+
+const LEGAL_WORDS_KENPO = [
+  { text: "基本的人権（11条）", kana: "きほんてきじんけん" },
+  { text: "公共の福祉（13条）", kana: "こうきょうのふくし" },
+  { text: "幸福追求権（13条）", kana: "こうふくついきゅうけん" },
+  { text: "法の下の平等（14条1項）", kana: "ほうのもとのびょうどう" },
+  { text: "思想良心の自由（19条）", kana: "しそうりょうしんのじゆう" },
+  { text: "信教の自由（20条1項）", kana: "しんきょうのじゆう" },
+  { text: "政教分離（20条3項）", kana: "せいきょうぶんり" },
+  { text: "表現の自由（21条1項）", kana: "ひょうげんのじゆう" },
+  { text: "検閲の禁止（21条2項）", kana: "けんえつのきんし" },
+  { text: "通信の秘密（21条2項）", kana: "つうしんのひみつ" },
+  { text: "学問の自由（23条）", kana: "がくもんのじゆう" },
+  { text: "居住移転の自由（22条1項）", kana: "きょじゅういてんのじゆう" },
+  { text: "職業選択の自由（22条1項）", kana: "しょくぎょうせんたくのじゆう" },
+  { text: "財産権（29条1項）", kana: "ざいさんけん" },
+  { text: "正当な補償（29条3項）", kana: "せいとうなほしょう" },
+  { text: "適正手続の保障（31条）", kana: "てきせいてつづきのほしょう" },
+  { text: "令状主義（35条1項）", kana: "れいじょうしゅぎ" },
+  { text: "黙秘権（38条1項）", kana: "もくひけん" },
+  { text: "自白法則（38条3項）", kana: "じはくほうそく" },
+  { text: "罪刑法定主義（31条）", kana: "ざいけいほうていしゅぎ" },
+  { text: "生存権（25条1項）", kana: "せいぞんけん" },
+  { text: "教育を受ける権利（26条1項）", kana: "きょういくをうけるけんり" },
+  { text: "勤労の権利（27条1項）", kana: "きんろうのけんり" },
+  { text: "労働基本権（28条）", kana: "ろうどうきほんけん" },
+  { text: "選挙権（15条1項）", kana: "せんきょけん" },
+  { text: "裁判を受ける権利（32条）", kana: "さいばんをうけるけんり" },
+];
+
+const LEGAL_WORDS = [...LEGAL_WORDS_MINPO, ...LEGAL_WORDS_KEIHO, ...LEGAL_WORDS_KENPO];
+
+const _REMOVE_ME = [
   { text: "善意", kana: "ぜんい" },
   { text: "悪意", kana: "あくい" },
   { text: "過失", kana: "かしつ" },
@@ -1181,7 +1293,7 @@ const LEGAL_WORDS = [
   { text: "執行停止", kana: "しっこうていし" },
   { text: "申請型義務付け", kana: "しんせいがたぎむつけ" },
   { text: "違法性の承継", kana: "いほうせいのしょうけい" }
-];
+]; // _REMOVE_ME end
 
         const KEYBOARD_LAYOUT = [
             ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
@@ -1429,6 +1541,16 @@ const LEGAL_WORDS = [
 
             saveFocusKeys() {
                 localStorage.setItem('neoTypeFocusKeys', JSON.stringify(this.focusKeys));
+            }
+
+            getLegalWordList() {
+                if (this.currentRunMode !== 'normal') return LEGAL_WORDS;
+                switch (this.normalModeConfig.legalSubject) {
+                    case 'minpo':  return LEGAL_WORDS_MINPO;
+                    case 'keiho': return LEGAL_WORDS_KEIHO;
+                    case 'kenpo': return LEGAL_WORDS_KENPO;
+                    default:      return LEGAL_WORDS;
+                }
             }
 
             loadNormalModeConfig() {
@@ -1917,7 +2039,7 @@ const LEGAL_WORDS = [
                     targetKeys = targetKeys.filter(k => !vowels.includes(k));
                 }
 
-                const wordList = this.settings.gameMode === 'legal' ? LEGAL_WORDS : INITIAL_WORDS;
+                const wordList = this.settings.gameMode === 'legal' ? this.getLegalWordList() : INITIAL_WORDS;
 
                 let candidates = [];
                 let isWeakMode = false;
@@ -2035,6 +2157,15 @@ const LEGAL_WORDS = [
                     this.saveNormalModeConfig();
                     this.render();
                 };
+
+                ['all', 'minpo', 'keiho', 'kenpo'].forEach(key => {
+                    const btn = document.getElementById(`normalSubject_${key}`);
+                    if (btn) btn.onclick = () => {
+                        this.normalModeConfig.legalSubject = key;
+                        this.saveNormalModeConfig();
+                        this.render();
+                    };
+                });
 
                 const normalLivesEnabledToggle = document.getElementById('normalLivesEnabledToggle');
                 if (normalLivesEnabledToggle) normalLivesEnabledToggle.onclick = () => {
@@ -2420,7 +2551,16 @@ const LEGAL_WORDS = [
                                 <!-- Legal mode -->
                                 ${this.renderSettingRow(
                                     '法律用語モード',
-                                    '法律・法学用語が出題されます',
+                                    cfg.legalMode
+                                        ? `<div class="flex gap-2 mt-1">
+                                            ${[
+                                                { key: 'all',    label: '全科目' },
+                                                { key: 'minpo',  label: '民法' },
+                                                { key: 'keiho',  label: '刑法' },
+                                                { key: 'kenpo',  label: '憲法' },
+                                            ].map(s => `<button id="normalSubject_${s.key}" class="segment-btn ${cfg.legalSubject === s.key ? 'active' : ''}">${s.label}</button>`).join('')}
+                                          </div>`
+                                        : '法律・法学用語が出題されます',
                                     `<button id="normalLegalModeToggle" class="toggle-btn">${this.renderSwitch(cfg.legalMode)}</button>`
                                 )}
                                 <!-- Lives -->
