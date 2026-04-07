@@ -1437,6 +1437,8 @@ const _REMOVE_ME = [
                 this.timeLeft = 60;
                 this.shake = false;
                 this.feedback = null;
+                this.totalCorrectKeystrokes = 0;
+                this.kps = 0;
                 this.timerInterval = null;
                 
                 this.settings = {
@@ -1661,6 +1663,16 @@ const _REMOVE_ME = [
                     }
                 }
 
+                if (this.gameState === 'playing' && e.key === 'Escape') {
+                    e.preventDefault();
+                    if (this.timerInterval) clearInterval(this.timerInterval);
+                    this.saveMissStats();
+                    this.restoreSettingsIfNeeded();
+                    this.gameState = this.currentRunMode === 'ranking' ? 'ranking-intro' : 'normal-setup';
+                    this.render();
+                    return;
+                }
+
                 if (this.gameState !== 'playing' || !this.currentWordData) return;
                 if (['Shift', 'Control', 'Alt', 'Meta', 'CapsLock', 'Tab', 'Escape'].includes(e.key)) return;
 
@@ -1760,6 +1772,7 @@ const _REMOVE_ME = [
                 }
 
                 if (isCorrect) {
+                    this.totalCorrectKeystrokes++;
                     this.playSound('type');
                     this.combo++;
                     if (this.combo > this.maxCombo) this.maxCombo = this.combo;
@@ -1866,6 +1879,8 @@ const _REMOVE_ME = [
                 this.feedback = null;
                 this.sessionMissCount = 0;
                 this.isNewHighScore = false;
+                this.totalCorrectKeystrokes = 0;
+                this.kps = 0;
                 if (this.currentRunMode === 'ranking') {
                     this.rankingLivesLeft = this.settings.lives;
                     this.totalLivesForRun = this.settings.lives;
@@ -1899,6 +1914,7 @@ const _REMOVE_ME = [
                 if (this.timerInterval) clearInterval(this.timerInterval);
                 if (this.settings.sound) soundEngine.playSuccess();
                 this.saveMissStats();
+                this.kps = Math.round(this.totalCorrectKeystrokes / this.settings.duration * 10) / 10;
                 if (this.currentRunMode === 'normal') {
                     const prevHighScore = this.loadHighScore();
                     if (this.score > prevHighScore) {
@@ -3279,10 +3295,12 @@ const _REMOVE_ME = [
                                             <span class="text-xl font-bold text-yellow-400">${this.maxCombo}</span>
                                         </div>
                                         <div class="p-3 rounded-xl flex items-center justify-between" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(148,163,184,0.24);">
-                                            <span class="text-slate-400 flex items-center gap-2 text-sm">${this.renderIcon('alert-circle')} Misses</span>
-                                            <span class="text-xl font-bold text-red-400">
-                                                ${this.sessionMissCount || 0}
-                                            </span>
+                                            <span class="text-slate-400 flex items-center gap-2 text-sm">${this.renderIcon('zap')} 打鍵数/秒 (KPS)</span>
+                                            <span class="text-xl font-bold text-cyan-400">${this.kps.toFixed(1)}</span>
+                                        </div>
+                                        <div class="p-3 rounded-xl flex items-center justify-between" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(148,163,184,0.24);">
+                                            <span class="text-slate-400 flex items-center gap-2 text-sm">${this.renderIcon('alert-circle')} ミス回数</span>
+                                            <span class="text-xl font-bold text-red-400">${this.sessionMissCount || 0}</span>
                                         </div>
                                     </div>
 
