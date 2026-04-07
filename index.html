@@ -359,6 +359,14 @@ body { margin: 0; padding: 0; font-family: 'Inter', ui-sans-serif, system-ui, -a
 
         const RANKING_MODE_STORAGE_KEY = 'neoTypeRankingNickname';
         const LAST_SUBMITTED_RANKING_STORAGE_KEY = 'neoTypeLastSubmittedRanking';
+        const NORMAL_MODE_CONFIG_KEY = 'neoTypeNormalModeConfig';
+        const DEFAULT_NORMAL_MODE_CONFIG = {
+            realMode: false,
+            legalMode: false,
+            livesEnabled: false,
+            lives: 3,
+            duration: 60
+        };
         const cloneSettings = (settings) => JSON.parse(JSON.stringify(settings));
         const DEFAULT_RANKING_MODE_SETTINGS = {
             ...createDefaultWeeklyRankingSettings()
@@ -1065,7 +1073,114 @@ const LEGAL_WORDS = [
   { text: "反対解釈", kana: "はんたいかいしゃく" },
   { text: "公序良俗", kana: "こうじょりょうぞく" },
   { text: "信義誠実の原則", kana: "しんぎせいじつのげんそく" },
-  { text: "権利の濫用", kana: "けんりのらんよう" }
+  { text: "権利の濫用", kana: "けんりのらんよう" },
+
+  // --- 条文用語・民法 (Statutory Terms - Civil Code) ---
+  { text: "第三者", kana: "だいさんしゃ" },          // 177条
+  { text: "意思表示", kana: "いしひょうじ" },          // 93条
+  { text: "到達", kana: "とうたつ" },                  // 97条
+  { text: "追認", kana: "ついにん" },                  // 116条
+  { text: "催告", kana: "さいこく" },                  // 114条
+  { text: "代理人", kana: "だいりにん" },              // 99条
+  { text: "本人", kana: "ほんにん" },                  // 99条
+  { text: "帰責事由", kana: "きせきじゆう" },          // 415条
+  { text: "受領遅滞", kana: "じゅりょうちたい" },      // 413条
+  { text: "同時履行", kana: "どうじりこう" },          // 533条
+  { text: "危険負担", kana: "きけんふたん" },          // 536条
+  { text: "賃料", kana: "ちんりょう" },                // 601条
+  { text: "敷金", kana: "しきん" },                    // 622条の2
+  { text: "明渡し", kana: "あけわたし" },
+  { text: "原状回復", kana: "げんじょうかいふく" },    // 621条
+  { text: "契約不適合", kana: "けいやくふてきごう" },  // 562条
+  { text: "追完請求", kana: "ついかんせいきゅう" },    // 562条
+  { text: "代金減額", kana: "だいきんげんがく" },      // 563条
+  { text: "債権者代位権", kana: "さいけんしゃだいいけん" }, // 423条
+  { text: "詐害行為取消権", kana: "さがいこういとりけしけん" }, // 424条
+  { text: "受益者", kana: "じゅえきしゃ" },            // 424条の3
+  { text: "転得者", kana: "てんとくしゃ" },            // 424条の4
+  { text: "相当の期間", kana: "そうとうのきかん" },    // 541条
+  { text: "相当因果関係", kana: "そうとういんがかんけい" },
+  { text: "予見可能性", kana: "よけんかのうせい" },
+  { text: "結果回避義務", kana: "けっかかいひぎむ" },
+  { text: "注意義務", kana: "ちゅういぎむ" },
+  { text: "法律行為", kana: "ほうりつこうい" },        // 90条
+  { text: "給付", kana: "きゅうふ" },                  // 400条等
+  { text: "催告解除", kana: "さいこくかいじょ" },      // 541条
+  { text: "無催告解除", kana: "むさいこくかいじょ" },  // 542条
+  { text: "填補賠償", kana: "てんぽばいしょう" },
+
+  // --- 条文用語・刑法 (Statutory Terms - Criminal Code) ---
+  { text: "窃取", kana: "せっしゅ" },                  // 235条
+  { text: "強取", kana: "ごうしゅ" },                  // 236条
+  { text: "喝取", kana: "かっしゅ" },                  // 249条
+  { text: "欺罔", kana: "ぎもう" },
+  { text: "財物", kana: "ざいもつ" },                  // 235条等
+  { text: "財産上の利益", kana: "ざいさんじょうのりえき" }, // 236条2項等
+  { text: "不法領得の意思", kana: "ふほうりょうとくのいし" },
+  { text: "業務上横領", kana: "ぎょうむじょうおうりょう" },    // 253条
+  { text: "占有離脱物横領", kana: "せんゆうりだつぶつおうりょう" }, // 254条
+  { text: "図利加害目的", kana: "ずりかがいもくてき" }, // 247条
+  { text: "住居侵入", kana: "じゅうきょしんにゅう" },  // 130条
+  { text: "不退去", kana: "ふたいきょ" },              // 130条
+  { text: "侮辱", kana: "ぶじょく" },                  // 231条
+  { text: "偽証", kana: "ぎしょう" },                  // 169条
+  { text: "虚偽告訴", kana: "きょぎこくそ" },          // 172条
+  { text: "証拠隠滅", kana: "しょうこいんめつ" },      // 104条
+  { text: "犯人隠避", kana: "はんにんいんぴ" },        // 103条
+  { text: "収賄", kana: "しゅうわい" },                // 197条
+  { text: "贈賄", kana: "ぞうわい" },                  // 198条
+  { text: "通貨偽造", kana: "つうかぎぞう" },          // 148条
+  { text: "公文書偽造", kana: "こうぶんしょぎぞう" },  // 155条
+  { text: "私文書偽造", kana: "しぶんしょぎぞう" },    // 159条
+  { text: "電磁的記録", kana: "でんじてききろく" },    // 161条の2等
+  { text: "器物損壊", kana: "きぶつそんかい" },        // 261条
+  { text: "建造物損壊", kana: "けんぞうぶつそんかい" }, // 260条
+  { text: "現住建造物放火", kana: "げんじゅうけんぞうぶつほうか" }, // 108条
+  { text: "事後強盗", kana: "じごごうとう" },          // 238条
+  { text: "傷害致死", kana: "しょうがいちし" },        // 205条
+  { text: "実行の着手", kana: "じっこうのちゃくしゅ" }, // 43条
+  { text: "既遂", kana: "きすい" },
+  { text: "共謀", kana: "きょうぼう" },
+  { text: "共謀共同正犯", kana: "きょうぼうきょうどうせいはん" },
+  { text: "過剰防衛", kana: "かじょうぼうえい" },      // 36条2項
+  { text: "誤想防衛", kana: "ごそうぼうえい" },
+  { text: "構成要件該当性", kana: "こうせいようけんがいとうせい" },
+  { text: "違法性阻却事由", kana: "いほうせいそきゃくじゆう" },
+  { text: "責任阻却事由", kana: "せきにんそきゃくじゆう" },
+  { text: "身分犯", kana: "みぶんはん" },
+  { text: "結果的加重犯", kana: "けっかてきかじゅうはん" },
+  { text: "法益", kana: "ほうえき" },
+  { text: "法益侵害", kana: "ほうえきしんがい" },
+
+  // --- 条文用語・刑事訴訟法 (Criminal Procedure) ---
+  { text: "任意捜査", kana: "にんいそうさ" },
+  { text: "強制捜査", kana: "きょうせいそうさ" },
+  { text: "現行犯逮捕", kana: "げんこうはんたいほ" },  // 213条
+  { text: "緊急逮捕", kana: "きんきゅうたいほ" },      // 210条
+  { text: "接見", kana: "せっけん" },                  // 39条
+  { text: "訴因", kana: "そいん" },                    // 256条
+  { text: "証拠能力", kana: "しょうこのうりょく" },
+  { text: "証明力", kana: "しょうめいりょく" },
+  { text: "伝聞証拠", kana: "でんぶんしょうこ" },      // 320条
+  { text: "補強証拠", kana: "ほきょうしょうこ" },      // 319条2項
+  { text: "公訴時効", kana: "こうそじこう" },
+  { text: "違法収集証拠", kana: "いほうしゅうしゅうしょうこ" },
+
+  // --- 条文用語・行政法 (Administrative Law) ---
+  { text: "行政処分", kana: "ぎょうせいしょぶん" },
+  { text: "行政裁量", kana: "ぎょうせいさいりょう" },
+  { text: "裁量権の逸脱", kana: "さいりょうけんのいつだつ" },
+  { text: "行政指導", kana: "ぎょうせいしどう" },
+  { text: "代執行", kana: "だいしっこう" },
+  { text: "取消訴訟", kana: "とりけしそしょう" },
+  { text: "処分性", kana: "しょぶんせい" },
+  { text: "原告適格", kana: "げんこくてきかく" },
+  { text: "国家賠償", kana: "こっかばいしょう" },
+  { text: "損失補償", kana: "そんしつほしょう" },
+  { text: "差止訴訟", kana: "さしとめそしょう" },
+  { text: "執行停止", kana: "しっこうていし" },
+  { text: "申請型義務付け", kana: "しんせいがたぎむつけ" },
+  { text: "違法性の承継", kana: "いほうせいのしょうけい" }
 ];
 
         const KEYBOARD_LAYOUT = [
@@ -1237,6 +1352,7 @@ const LEGAL_WORDS = [
 
                 this.rankingLivesLeft = this.rankingModeSettings.lives;
                 this.currentWordMissed = false;
+                this.normalModeConfig = this.loadNormalModeConfig();
 
                 this.setupEventListeners();
                 this.loadWeeklyRankingSettings();
@@ -1315,6 +1431,19 @@ const LEGAL_WORDS = [
                 localStorage.setItem('neoTypeFocusKeys', JSON.stringify(this.focusKeys));
             }
 
+            loadNormalModeConfig() {
+                try {
+                    const saved = localStorage.getItem(NORMAL_MODE_CONFIG_KEY);
+                    return saved ? { ...DEFAULT_NORMAL_MODE_CONFIG, ...JSON.parse(saved) } : { ...DEFAULT_NORMAL_MODE_CONFIG };
+                } catch (e) {
+                    return { ...DEFAULT_NORMAL_MODE_CONFIG };
+                }
+            }
+
+            saveNormalModeConfig() {
+                localStorage.setItem(NORMAL_MODE_CONFIG_KEY, JSON.stringify(this.normalModeConfig));
+            }
+
             normalizeRankingNickname(value) {
                 return (value || '').trim().slice(0, 20);
             }
@@ -1365,6 +1494,12 @@ const LEGAL_WORDS = [
                 if (this.showSettings || this.showStats || this.showKeyboardSelector || this.showRanking) return;
                 if (this.isPaused) return;
 
+                if (this.gameState === 'normal-setup') {
+                    if (e.code === 'Space') { e.preventDefault(); this.startGame('normal'); }
+                    else if (e.key === 'Escape') { this.gameState = 'menu'; this.render(); }
+                    return;
+                }
+
                 if (this.gameState === 'ranking-intro') {
                     if (e.code === 'Space') { e.preventDefault(); this.startGame('ranking'); }
                     else if (e.key === 'Escape') { this.gameState = 'menu'; this.render(); }
@@ -1379,12 +1514,18 @@ const LEGAL_WORDS = [
                 if (e.code === 'Space') {
                     if (this.gameState === 'menu') {
                         e.preventDefault();
-                        this.startGame('normal');
+                        this.gameState = 'normal-setup';
+                        this.render();
                         return;
                     }
                     if (this.gameState === 'finished') {
                         e.preventDefault();
-                        this.startGame(this.currentRunMode);
+                        if (this.currentRunMode === 'normal') {
+                            this.gameState = 'normal-setup';
+                            this.render();
+                        } else {
+                            this.startGame(this.currentRunMode);
+                        }
                         return;
                     }
                     if (this.gameState === 'playing') {
@@ -1524,9 +1665,9 @@ const LEGAL_WORDS = [
                         this.sessionMissCount = (this.sessionMissCount || 0) + 1;
                     }
 
-                    if (this.currentRunMode === 'ranking' && !this.currentWordMissed) {
+                    if (this.rankingLivesLeft !== null && !this.currentWordMissed) {
                         this.currentWordMissed = true;
-                        this.rankingLivesLeft = Math.max(0, (this.rankingLivesLeft ?? this.settings.lives) - 1);
+                        this.rankingLivesLeft = Math.max(0, this.rankingLivesLeft - 1);
                         if (this.rankingLivesLeft <= 0) {
                             this.endGame();
                             return;
@@ -1580,6 +1721,11 @@ const LEGAL_WORDS = [
                     this.applyRankingModeSettings();
                 } else {
                     this.restoreSettingsIfNeeded();
+                    // Apply normal mode config
+                    const cfg = this.normalModeConfig;
+                    this.settings.realMode = cfg.realMode;
+                    this.settings.gameMode = cfg.legalMode ? 'legal' : 'normal';
+                    this.settings.duration = cfg.duration;
                 }
 
                 if (this.settings.sound) soundEngine.init();
@@ -1593,7 +1739,16 @@ const LEGAL_WORDS = [
                 this.feedback = null;
                 this.sessionMissCount = 0;
                 this.isNewHighScore = false;
-                this.rankingLivesLeft = this.currentRunMode === 'ranking' ? this.settings.lives : null;
+                if (this.currentRunMode === 'ranking') {
+                    this.rankingLivesLeft = this.settings.lives;
+                    this.totalLivesForRun = this.settings.lives;
+                } else if (this.currentRunMode === 'normal' && this.normalModeConfig.livesEnabled) {
+                    this.rankingLivesLeft = this.normalModeConfig.lives;
+                    this.totalLivesForRun = this.normalModeConfig.lives;
+                } else {
+                    this.rankingLivesLeft = null;
+                    this.totalLivesForRun = null;
+                }
                 this.pickNextWord();
                 this.startTimer();
                 this.render();
@@ -1835,6 +1990,8 @@ const LEGAL_WORDS = [
                 
                 if (this.gameState === 'menu') {
                     app.innerHTML = this.renderMenu();
+                } else if (this.gameState === 'normal-setup') {
+                    app.innerHTML = this.renderNormalSetup();
                 } else if (this.gameState === 'finished') {
                     app.innerHTML = this.renderResults();
                 } else if (this.gameState === 'playing') {
@@ -1859,7 +2016,50 @@ const LEGAL_WORDS = [
             attachEventHandlers() {
                 // Menu buttons
                 const startBtn = document.getElementById('startBtn');
-                if (startBtn) startBtn.onclick = () => this.startGame('normal');
+                if (startBtn) startBtn.onclick = () => { this.gameState = 'normal-setup'; this.render(); };
+
+                // Normal setup screen handlers
+                const normalSetupStartBtn = document.getElementById('normalSetupStartBtn');
+                if (normalSetupStartBtn) normalSetupStartBtn.onclick = () => this.startGame('normal');
+
+                const normalRealModeToggle = document.getElementById('normalRealModeToggle');
+                if (normalRealModeToggle) normalRealModeToggle.onclick = () => {
+                    this.normalModeConfig.realMode = !this.normalModeConfig.realMode;
+                    this.saveNormalModeConfig();
+                    this.render();
+                };
+
+                const normalLegalModeToggle = document.getElementById('normalLegalModeToggle');
+                if (normalLegalModeToggle) normalLegalModeToggle.onclick = () => {
+                    this.normalModeConfig.legalMode = !this.normalModeConfig.legalMode;
+                    this.saveNormalModeConfig();
+                    this.render();
+                };
+
+                const normalLivesEnabledToggle = document.getElementById('normalLivesEnabledToggle');
+                if (normalLivesEnabledToggle) normalLivesEnabledToggle.onclick = () => {
+                    this.normalModeConfig.livesEnabled = !this.normalModeConfig.livesEnabled;
+                    this.saveNormalModeConfig();
+                    this.render();
+                };
+
+                [1, 2, 3, 5].forEach(n => {
+                    const btn = document.getElementById(`normalLives${n}`);
+                    if (btn) btn.onclick = () => {
+                        this.normalModeConfig.lives = n;
+                        this.saveNormalModeConfig();
+                        this.render();
+                    };
+                });
+
+                [30, 60, 90, 120].forEach(t => {
+                    const btn = document.getElementById(`normalDuration${t}`);
+                    if (btn) btn.onclick = () => {
+                        this.normalModeConfig.duration = t;
+                        this.saveNormalModeConfig();
+                        this.render();
+                    };
+                });
 
                 const settingsBtn = document.getElementById('settingsBtn');
                 if (settingsBtn) settingsBtn.onclick = () => {
@@ -2084,7 +2284,14 @@ const LEGAL_WORDS = [
                 
                 // Results buttons
                 const retryBtn = document.getElementById('retryBtn');
-                if (retryBtn) retryBtn.onclick = () => this.startGame(this.currentRunMode);
+                if (retryBtn) retryBtn.onclick = () => {
+                    if (this.currentRunMode === 'normal') {
+                        this.gameState = 'normal-setup';
+                        this.render();
+                    } else {
+                        this.startGame(this.currentRunMode);
+                    }
+                };
                 
                 const backToMenuBtn = document.getElementById('backToMenuBtn');
                 if (backToMenuBtn) backToMenuBtn.onclick = () => {
@@ -2174,6 +2381,95 @@ const LEGAL_WORDS = [
                                     }).join('')}
                                 </div>
                             `}
+                        </div>
+                    </div>
+                `;
+            }
+
+            renderNormalSetup() {
+                const cfg = this.normalModeConfig;
+                const durations = [30, 60, 90, 120];
+                const liveCounts = [1, 2, 3, 5];
+                const weakRate = Math.round(this.settings.weakKeyRate * 100);
+                const selectedKeys = this.focusKeys.length > 0
+                    ? `<span class="font-mono" style="color:var(--settings-accent);">${this.focusKeys.join(', ').toUpperCase()}</span>`
+                    : '未選択（自動分析のみ）';
+
+                return `
+                    <div class="app-shell flex flex-col items-center justify-center p-4 font-sans select-none relative overflow-hidden">
+                        <div style="position:absolute;top:-80px;left:50%;transform:translateX(-50%);width:500px;height:400px;background:radial-gradient(ellipse,rgba(99,102,241,0.10) 0%,transparent 65%);pointer-events:none;"></div>
+                        ${this.showKeyboardSelector ? this.renderKeyboardSelector() : ''}
+
+                        <div class="max-w-lg w-full space-y-4 animate-in zoom-in-95 duration-300 relative" style="max-height:95vh;overflow-y:auto;">
+                            <!-- Header -->
+                            <div class="text-center space-y-1 pt-2">
+                                <h1 class="text-4xl font-black text-white">通常モード</h1>
+                                <p class="text-sm" style="color:var(--settings-text-muted);">設定を選んでスタート</p>
+                            </div>
+
+                            <!-- Game settings card -->
+                            <div class="app-panel p-5 space-y-0">
+                                <div class="settings-section-title" style="margin-bottom:12px;">${this.renderIcon('sliders')} ゲーム設定</div>
+
+                                <!-- Real typing -->
+                                ${this.renderSettingRow(
+                                    'リアルタイピング',
+                                    'Backspaceで文字を削除できます',
+                                    `<button id="normalRealModeToggle" class="toggle-btn">${this.renderSwitch(cfg.realMode)}</button>`
+                                )}
+                                <!-- Legal mode -->
+                                ${this.renderSettingRow(
+                                    '法律用語モード',
+                                    '法律・法学用語が出題されます',
+                                    `<button id="normalLegalModeToggle" class="toggle-btn">${this.renderSwitch(cfg.legalMode)}</button>`
+                                )}
+                                <!-- Lives -->
+                                ${this.renderSettingRow(
+                                    'ミス回数制限（ライフ）',
+                                    cfg.livesEnabled
+                                        ? `<div class="flex gap-2 mt-1">${liveCounts.map(n => `<button id="normalLives${n}" class="segment-btn ${cfg.lives === n ? 'active' : ''}">${n}</button>`).join('')}</div>`
+                                        : 'ミスするとライフが減ります',
+                                    `<button id="normalLivesEnabledToggle" class="toggle-btn">${this.renderSwitch(cfg.livesEnabled)}</button>`
+                                )}
+                                <!-- Duration -->
+                                ${this.renderSettingRow(
+                                    '制限時間',
+                                    'ラウンド時間を選択します',
+                                    `<div class="segment-wrap segment-3">${durations.map(t => `<button id="normalDuration${t}" class="segment-btn ${cfg.duration === t ? 'active' : ''}">${t}s</button>`).join('')}</div>`
+                                )}
+                            </div>
+
+                            <!-- Weak key settings card -->
+                            <div class="app-panel p-5 space-y-0">
+                                <div class="settings-section-title" style="margin-bottom:12px;">${this.renderIcon('target')} 苦手キー設定</div>
+                                ${this.renderSettingRow(
+                                    '重点キー選択',
+                                    selectedKeys,
+                                    `<button id="openKeyboardBtn" class="settings-btn" style="white-space:nowrap;">${this.renderIcon('keyboard')} キーボードから選択</button>`
+                                )}
+                                ${this.renderSettingRow(
+                                    '母音を除外',
+                                    'AIUEO を分析対象から外します',
+                                    `<button id="ignoreVowelsSwitch" class="toggle-btn">${this.renderSwitch(this.settings.ignoreVowels)}</button>`
+                                )}
+                                ${this.renderSettingRow(
+                                    '苦手キー出現率',
+                                    '重点キーが出現する割合',
+                                    `<div class="slider-wrap"><input id="weakKeyRateSlider" type="range" min="0" max="1" step="0.1" value="${this.settings.weakKeyRate}" class="settings-slider" /><span class="slider-value">${weakRate}%</span></div>`
+                                )}
+                            </div>
+
+                            <!-- Start -->
+                            <div class="space-y-2 pb-4">
+                                <button id="normalSetupStartBtn" class="w-full app-btn-primary py-3 text-base font-bold">
+                                    ${this.renderIcon('play')} スタート
+                                </button>
+                                <div class="text-center text-xs font-mono" style="color:var(--settings-text-subtle);">Press [SPACE] to Start &nbsp;/&nbsp; [ESC] Back to Menu</div>
+                            </div>
+                        </div>
+
+                        <div class="absolute bottom-4 right-4 text-xs font-mono select-none" style="color:var(--settings-text-subtle);">
+                            © Tadashi Kotegawa
                         </div>
                     </div>
                 `;
@@ -2640,7 +2936,7 @@ const LEGAL_WORDS = [
                                         TIME LIMIT
                                         ${this.settings.gameMode === 'legal' ? `<span class="bg-indigo-900 text-indigo-300 px-2 rounded-full text-[10px] font-bold border border-indigo-700 flex items-center gap-1">${this.renderIcon('scale')} LEGAL MODE</span>` : ''}
                                         ${this.settings.realMode ? `<span class="bg-red-900 text-red-300 px-2 rounded-full text-[10px] font-bold border border-red-700 flex items-center gap-1">${this.renderIcon('delete')} REAL TYPE MODE</span>` : ''}
-                                        ${this.currentRunMode === 'ranking' ? `<span class="inline-flex items-center gap-2 bg-amber-950/70 text-amber-200 px-2 py-1 rounded-full text-[10px] font-bold border border-amber-600/70"><span>LIFE</span><span class="life-hearts">${this.renderLivesHearts(this.settings.lives, this.rankingLivesLeft)}</span></span>` : ''}
+                                        ${this.rankingLivesLeft !== null ? `<span class="inline-flex items-center gap-2 bg-amber-950/70 text-amber-200 px-2 py-1 rounded-full text-[10px] font-bold border border-amber-600/70"><span>LIFE</span><span class="life-hearts">${this.renderLivesHearts(this.totalLivesForRun, this.rankingLivesLeft)}</span></span>` : ''}
                                     </span>
                                     <span class="${this.timeLeft < 10 ? 'text-red-500 animate-pulse' : ''}">${this.timeLeft}s</span>
                                 </div>
@@ -2846,7 +3142,7 @@ const LEGAL_WORDS = [
                                         <button id="retryBtn" class="w-full flex items-center justify-center gap-2 px-8 py-3 app-btn-primary">
                                             ${this.renderIcon('rotate-ccw')} もう一度挑戦
                                         </button>
-                                        <div class="text-xs text-slate-500 font-mono">Press [SPACE] to Retry</div>
+                                        <div class="text-xs text-slate-500 font-mono">${this.currentRunMode === 'normal' ? 'Press [SPACE] for Settings' : 'Press [SPACE] to Retry'}</div>
                                         <button id="backToMenuBtn" class="mt-1 text-sm underline" style="color: var(--settings-text-muted);">
                                             Back to Menu
                                         </button>
